@@ -28,31 +28,19 @@ We're committed to providing a welcoming environment for all contributors. Pleas
 
 ### Environment Setup
 
-#### Option 1: Using Conda (Recommended)
+This project uses [uv](https://docs.astral.sh/uv/) instead of Conda, pip-managed virtualenvs, or checked-in requirements files.
 
-1. Install [Anaconda](https://www.anaconda.com/products/distribution) or [Miniconda](https://docs.conda.io/en/latest/miniconda.html)
-2. Create and activate the environment:
+1. Install uv:
    ```bash
-   conda env create -f environment.yml
-   conda activate bumblebee
+   curl -LsSf https://astral.sh/uv/install.sh | sh
    ```
-
-#### Option 2: Using Python venv and pip
-
-1. Create a virtual environment:
+2. Create the environment and install dependencies:
    ```bash
-   # On macOS/Linux
-   python3 -m venv venv
-   source venv/bin/activate
-
-   # On Windows
-   python -m venv venv
-   .\venv\Scripts\activate
+   uv sync --group dev --group notebooks
    ```
-### Install dependencies:
-
+3. Run commands inside the environment with `uv run`, for example:
    ```bash
-   pip install -r requirements.txt
+   uv run python -c "import bumblebee; print(bumblebee.__file__)"
    ```
 
 ## Development Workflow
@@ -66,8 +54,8 @@ We're committed to providing a welcoming environment for all contributors. Pleas
 
 3. **Follow coding standards**: Ensure your code follows our style guide by running:
    ```bash
-   black # sort python code
-   isort . # sort imports
+   uv run black src
+   uv run isort src
    ```
 
 4. **Test Your Changes**
@@ -76,26 +64,19 @@ Before committing your changes, ensure your modifications work correctly. This s
 
 You can validate your work with the following steps:
 
-1. Build the package:
+1. Sync dependencies:
    ```bash
-   python setup.py sdist bdist_wheel
+   uv sync --group dev --group notebooks
    ```
 
-2. (Optional) Create a fresh virtual environment:
-   - On macOS/Linux:
-     ```bash
-     python3 -m venv test-env
-     source test-env/bin/activate
-     ```
-   - On Windows:
-     ```bash
-     python -m venv test-env
-     .\test-env\Scripts\activate
-     ```
-
-3. Install the newly built package:
+2. Build the package:
    ```bash
-   pip install dist/bumblebee-1.0.0-py3-none-any.whl
+   uv build
+   ```
+
+3. Validate imports from the managed environment:
+   ```bash
+   uv run python -c "from bumblebee import Mouse, Keyboard; print(Mouse, Keyboard)"
    ```
 
 Alternatively, use your preferred testing method to ensure everything functions as expected.

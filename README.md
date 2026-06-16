@@ -57,7 +57,13 @@ The keyboard simulation is driven by:
 1. Install Bumblebee
 
 ```bash
-pip install the-bumblebee
+uv add the-bumblebee
+```
+
+For a local checkout, install with:
+
+```bash
+uv sync
 ```
 2. Import the core modules and use them as following:
 
@@ -116,6 +122,21 @@ keyboard.set_consistency(99)  # Set consistency to 99%
 text = "Bumblebee is great."
 keyboard.type(text)  # 'text' must be a string.
 ```
+
+---
+
+## 🛠️ Development
+
+This repository uses [uv](https://docs.astral.sh/uv/) for environment and dependency management.
+
+```bash
+uv sync --group dev --group notebooks
+uv run python -c "import bumblebee; print(bumblebee.__file__)"
+uv run black src
+uv run isort src
+```
+
+Runtime package code lives in `src/bumblebee`. Training notebooks and local datasets stay outside the package in `notebooks/` and `data/`.
 
 ---
 
