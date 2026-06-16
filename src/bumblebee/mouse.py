@@ -123,7 +123,9 @@ class Mouse:
             AssertionError: If the speed is not a float.
         """
         assert speed > 0, "Speed must be greater than 0"
-        assert isinstance(speed, float) or isinstance(speed, int), "Speed must be either float or int"
+        assert isinstance(speed, float) or isinstance(
+            speed, int
+        ), "Speed must be either float or int"
         self.__SPEED = speed
 
     def click(self, button: Any = "left"):
