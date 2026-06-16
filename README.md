@@ -1,9 +1,5 @@
 # 🐝 Bumblebee – Human-Like Mouse & Keyboard Controller
 
-<div align="center">
-  <img src="https://github.com/socioy/bumblebee/blob/master/data/logo.png" alt="Bumblebee Logo" width="400" style="border-radius: 10px;">
-</div>
-
 Bumblebee is an AI-powered Python package that provides **realistic, human-like control** of the mouse and keyboard. Unlike traditional automation tools, Bumblebee leverages deep learning to predict **natural movement patterns**, resulting in automated interactions that feel organic and smooth.
 
 ---
@@ -15,9 +11,6 @@ Bumblebee is an AI-powered Python package that provides **realistic, human-like 
 
 - **Smart Keystroke Simulation:**  
   Simulates typing with natural delays, realistic punctuation handling, and variability in keystroke timing to emulate human typing patterns.
-
-- **Extensive Training Data:**  
-  Trained on a dataset of over 25,000 real cursor movements to ensure high realism and accuracy.
 
 - **Reinforcement Learning (Coming Soon):**  
   Future updates will incorporate RL to further enhance cursor behavior, enabling more diverse and adaptive movement patterns.
@@ -130,13 +123,13 @@ keyboard.type(text)  # 'text' must be a string.
 This repository uses [uv](https://docs.astral.sh/uv/) for environment and dependency management.
 
 ```bash
-uv sync --group dev --group notebooks
+uv sync --group dev
 uv run python -c "import bumblebee; print(bumblebee.__file__)"
 uv run black src
 uv run isort src
 ```
 
-Runtime package code lives in `src/bumblebee`. Training notebooks and local datasets stay outside the package in `notebooks/` and `data/`.
+Runtime package code lives in `src/bumblebee`. Training notebooks and local datasets are intentionally not stored in this repository while the next model architecture is being developed.
 
 ---
 

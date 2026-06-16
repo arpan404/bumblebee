@@ -36,7 +36,7 @@ This project uses [uv](https://docs.astral.sh/uv/) instead of Conda, pip-managed
    ```
 2. Create the environment and install dependencies:
    ```bash
-   uv sync --group dev --group notebooks
+   uv sync --group dev
    ```
 3. Run commands inside the environment with `uv run`, for example:
    ```bash
@@ -66,7 +66,7 @@ You can validate your work with the following steps:
 
 1. Sync dependencies:
    ```bash
-   uv sync --group dev --group notebooks
+   uv sync --group dev
    ```
 
 2. Build the package:
