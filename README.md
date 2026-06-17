@@ -1,6 +1,5 @@
 # 🐝 Bumblebee
 
-[![CI](https://github.com/arpan404/bumblebee/actions/workflows/ci.yml/badge.svg)](https://github.com/arpan404/bumblebee/actions/workflows/ci.yml)
 [![PyPI](https://img.shields.io/pypi/v/the-bumblebee.svg)](https://pypi.org/project/the-bumblebee/)
 [![Python](https://img.shields.io/pypi/pyversions/the-bumblebee.svg)](https://pypi.org/project/the-bumblebee/)
 
