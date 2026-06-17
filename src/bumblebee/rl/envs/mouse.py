@@ -5,14 +5,18 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from .data import MouseDemonstrationDataset
-from .reward import ImitationReward
+from ..core.reward import ImitationReward
+from ..data import MouseDemonstrationDataset
 
 
 @dataclass(frozen=True)
 class VirtualScreen:
     width: int = 4096
     height: int = 2304
+
+    def __post_init__(self) -> None:
+        if self.width <= 0 or self.height <= 0:
+            raise ValueError("screen width and height must be positive")
 
     @property
     def diagonal(self) -> float:
@@ -44,6 +48,33 @@ class MouseEnvConfig:
     local_loop_efficiency_threshold: float = 0.25
     task_reachability_margin: float = 0.85
     record_reward_terms: bool = True
+
+    def __post_init__(self) -> None:
+        if self.max_steps < 1:
+            raise ValueError("max_steps must be at least 1")
+        positive_fields = {
+            "dt": self.dt,
+            "max_velocity_px_s": self.max_velocity_px_s,
+            "target_radius_px": self.target_radius_px,
+            "small_move_speed_px_s": self.small_move_speed_px_s,
+            "local_loop_min_travel_px": self.local_loop_min_travel_px,
+        }
+        for name, value in positive_fields.items():
+            if value <= 0:
+                raise ValueError(f"{name} must be positive")
+        if self.min_start_dest_distance_px < 0:
+            raise ValueError("min_start_dest_distance_px cannot be negative")
+        if (
+            self.max_start_dest_distance_px is not None
+            and self.max_start_dest_distance_px <= 0
+        ):
+            raise ValueError("max_start_dest_distance_px must be positive when set")
+        if self.local_loop_window < 2:
+            raise ValueError("local_loop_window must be at least 2")
+        if not 0 < self.local_loop_efficiency_threshold <= 1:
+            raise ValueError("local_loop_efficiency_threshold must be in (0, 1]")
+        if not 0 < self.task_reachability_margin <= 1:
+            raise ValueError("task_reachability_margin must be in (0, 1]")
 
     @property
     def max_reachable_distance_px(self) -> float:

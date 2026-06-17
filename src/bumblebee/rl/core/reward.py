@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
+
 import numpy as np
 
 from .geometry import curvature, resample_polyline, to_local_frame
 
 
+@dataclass(frozen=True)
 class ImitationReward:
     """Terminal imitation bonus for successful trajectories only.
 
@@ -14,18 +17,23 @@ class ImitationReward:
     that never arrives at the destination.
     """
 
-    def __init__(
-        self,
-        *,
-        path_weight: float = 0.40,
-        speed_weight: float = 0.25,
-        turn_weight: float = 0.20,
-        efficiency_weight: float = 0.15,
-    ) -> None:
-        self.path_weight = path_weight
-        self.speed_weight = speed_weight
-        self.turn_weight = turn_weight
-        self.efficiency_weight = efficiency_weight
+    path_weight: float = 0.40
+    speed_weight: float = 0.25
+    turn_weight: float = 0.20
+    efficiency_weight: float = 0.15
+
+    def __post_init__(self) -> None:
+        weights = {
+            "path_weight": self.path_weight,
+            "speed_weight": self.speed_weight,
+            "turn_weight": self.turn_weight,
+            "efficiency_weight": self.efficiency_weight,
+        }
+        for name, value in weights.items():
+            if value < 0:
+                raise ValueError(f"{name} cannot be negative")
+        if sum(weights.values()) <= 0:
+            raise ValueError("at least one imitation reward weight must be positive")
 
     def __call__(
         self,

@@ -16,9 +16,9 @@ from stable_baselines3.common.env_checker import check_env
 from stable_baselines3.common.monitor import Monitor
 from stable_baselines3.common.vec_env import DummyVecEnv, SubprocVecEnv
 
-from bumblebee.rl.callbacks import RichTrainingCallback
-from bumblebee.rl.env import MouseEnvConfig, VirtualScreen
-from bumblebee.rl.gym_env import GymMouseImitationEnv
+from bumblebee.rl.envs.gymnasium import GymMouseImitationEnv
+from bumblebee.rl.envs.mouse import MouseEnvConfig, VirtualScreen
+from bumblebee.rl.training.callbacks import RichTrainingCallback
 
 CHECKPOINT_PREFIX = "sac_mouse"
 CHECKPOINT_RE = re.compile(rf"^{re.escape(CHECKPOINT_PREFIX)}_(\d+)_steps\.zip$")

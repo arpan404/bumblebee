@@ -68,7 +68,7 @@ def main() -> None:
     )
     dataset.save(args.output)
     print(
-        f"saved {len(dataset.signatures)} cleaned trajectories to {args.output} "
+        f"saved {len(dataset)} cleaned trajectories to {args.output} "
         f"with {args.num_points} points each"
     )
 

@@ -6,12 +6,14 @@ import numpy as np
 def resample_polyline(points: np.ndarray, num_points: int) -> np.ndarray:
     """Resample a 2D polyline by arc length."""
 
+    if num_points < 1:
+        raise ValueError("num_points must be at least 1")
+
+    points = np.asarray(points, dtype=np.float64)
     if len(points) == 0:
         raise ValueError("points cannot be empty")
     if len(points) == 1:
-        return np.repeat(points.astype(np.float64), num_points, axis=0)
-
-    points = points.astype(np.float64)
+        return np.repeat(points, num_points, axis=0)
     segment_lengths = np.linalg.norm(np.diff(points, axis=0), axis=1)
     cumulative = np.concatenate([[0.0], np.cumsum(segment_lengths)])
     total = cumulative[-1]

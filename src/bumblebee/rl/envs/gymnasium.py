@@ -5,8 +5,8 @@ from typing import Any
 
 import numpy as np
 
-from .data import MouseDemonstrationDataset
-from .env import MouseEnvConfig, MouseImitationEnv
+from ..data import MouseDemonstrationDataset
+from .mouse import MouseEnvConfig, MouseImitationEnv
 
 try:
     import gymnasium as gym
@@ -15,6 +15,9 @@ except ImportError as exc:  # pragma: no cover - exercised only without train de
     raise ImportError(
         "Gymnasium is required for RL training. Install with `uv sync --group train`."
     ) from exc
+
+_OBSERVATION_LOW = np.array([0, 0, 0, 0, -1, -1, 0, -1, -1, 0], dtype=np.float32)
+_OBSERVATION_HIGH = np.array([1, 1, 1, 1, 1, 1, 1, 1, 1, 1], dtype=np.float32)
 
 
 class GymMouseImitationEnv(gym.Env):
@@ -40,8 +43,8 @@ class GymMouseImitationEnv(gym.Env):
             dtype=np.float32,
         )
         self.observation_space = spaces.Box(
-            low=np.array([0, 0, 0, 0, -1, -1, 0, -1, -1, 0], dtype=np.float32),
-            high=np.array([1, 1, 1, 1, 1, 1, 1, 1, 1, 1], dtype=np.float32),
+            low=_OBSERVATION_LOW,
+            high=_OBSERVATION_HIGH,
             dtype=np.float32,
         )
 
@@ -51,6 +54,7 @@ class GymMouseImitationEnv(gym.Env):
         seed: int | None = None,
         options: dict[str, Any] | None = None,
     ) -> tuple[np.ndarray, dict[str, Any]]:
+        _ = options
         super().reset(seed=seed)
         observation = self.env.reset(seed=seed)
         info: dict[str, Any] = {}
@@ -60,9 +64,7 @@ class GymMouseImitationEnv(gym.Env):
         self, action: np.ndarray
     ) -> tuple[np.ndarray, float, bool, bool, dict[str, Any]]:
         observation, reward, done, info = self.env.step(action)
-        terminated = bool(
-            info.get("reached", False) or info.get("stopped_early", False)
-        )
+        terminated = bool(info.get("reached", False))
         truncated = bool(info.get("truncated", False))
         if done and not terminated and not truncated:
             truncated = True

@@ -11,7 +11,7 @@ import numpy as np
 import torch
 from stable_baselines3 import SAC
 
-from bumblebee.rl.env import MouseEnvConfig, VirtualScreen
+from bumblebee.rl.envs.mouse import MouseEnvConfig, VirtualScreen
 
 
 @dataclass

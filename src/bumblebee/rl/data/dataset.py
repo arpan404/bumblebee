@@ -9,8 +9,8 @@ from typing import Iterable
 
 import numpy as np
 
-from .geometry import from_local_frame
-from .types import MouseTrace
+from ..core.geometry import from_local_frame
+from ..core.types import MouseTrace
 
 
 @dataclass(frozen=True)
@@ -26,6 +26,29 @@ class CleaningConfig:
     max_avg_speed_px_s: float = 8000.0
     max_instant_speed_px_s: float = 20_000.0
 
+    def __post_init__(self) -> None:
+        if self.min_points < 2:
+            raise ValueError("min_points must be at least 2")
+        positive_fields = {
+            "min_distance_px": self.min_distance_px,
+            "min_duration_seconds": self.min_duration_seconds,
+            "pause_seconds": self.pause_seconds,
+            "max_jump_px": self.max_jump_px,
+            "max_duration_seconds": self.max_duration_seconds,
+            "max_instant_speed_px_s": self.max_instant_speed_px_s,
+        }
+        for name, value in positive_fields.items():
+            if value <= 0:
+                raise ValueError(f"{name} must be positive")
+        if self.stationary_epsilon_px < 0:
+            raise ValueError("stationary_epsilon_px cannot be negative")
+        if self.min_avg_speed_px_s < 0:
+            raise ValueError("min_avg_speed_px_s cannot be negative")
+        if self.max_avg_speed_px_s <= self.min_avg_speed_px_s:
+            raise ValueError("max_avg_speed_px_s must exceed min_avg_speed_px_s")
+        if self.max_duration_seconds <= self.min_duration_seconds:
+            raise ValueError("max_duration_seconds must exceed min_duration_seconds")
+
 
 @dataclass(frozen=True)
 class Demonstration:
@@ -40,16 +63,28 @@ class MouseDemonstrationDataset:
     def __init__(
         self, signatures: np.ndarray, speed_profiles: np.ndarray, durations: np.ndarray
     ):
+        signatures = np.asarray(signatures, dtype=np.float32)
+        speed_profiles = np.asarray(speed_profiles, dtype=np.float32)
+        durations = np.asarray(durations, dtype=np.float32)
         if len(signatures) == 0:
             raise ValueError("dataset must contain at least one demonstration")
-        self.signatures = signatures.astype(np.float32)
-        self.speed_profiles = speed_profiles.astype(np.float32)
-        self.durations = durations.astype(np.float32)
+        if signatures.ndim != 3 or signatures.shape[-1] != 2:
+            raise ValueError("signatures must have shape (N, points, 2)")
+        if speed_profiles.shape != signatures.shape[:2]:
+            raise ValueError("speed_profiles must have shape (N, points)")
+        if durations.shape != (len(signatures),):
+            raise ValueError("durations must have shape (N,)")
+        self.signatures = signatures
+        self.speed_profiles = speed_profiles
+        self.durations = durations
+
+    def __len__(self) -> int:
+        return len(self.signatures)
 
     @classmethod
     def load(cls, path: str | Path) -> "MouseDemonstrationDataset":
-        data = np.load(path)
-        return cls(data["signatures"], data["speed_profiles"], data["durations"])
+        with np.load(path) as data:
+            return cls(data["signatures"], data["speed_profiles"], data["durations"])
 
     def save(self, path: str | Path) -> None:
         path = Path(path)
@@ -64,7 +99,7 @@ class MouseDemonstrationDataset:
     def sample_index(self, rng: np.random.Generator) -> int:
         """Sample a demonstration id without transforming the path yet."""
 
-        return int(rng.integers(0, len(self.signatures)))
+        return int(rng.integers(0, len(self)))
 
     def get(
         self, index: int, start: np.ndarray, destination: np.ndarray
@@ -88,6 +123,10 @@ class MouseDemonstrationDataset:
 
 def iter_tracker_files(source: str | Path) -> Iterable[Path]:
     source = Path(source).expanduser()
+    if source.is_file():
+        if source.name.startswith("mouse_positions_") and source.suffix == ".json":
+            yield source
+        return
     yield from sorted(source.glob("mouse_positions_*.json"))
 
 
@@ -135,6 +174,7 @@ def clean_and_segment(
             _append_trace(traces, current, config)
             current = [point]
             idle_started_at = None
+            last_stationary_point = point
             continue
 
         dist = float(np.linalg.norm(point[:2] - previous[:2]))
@@ -210,7 +250,17 @@ def _process_tracker_file(
         speeds.append(speed_profile)
         durations.append(trace.duration)
 
-    return np.asarray(signatures), np.asarray(speeds), np.asarray(durations)
+    if not signatures:
+        return (
+            np.empty((0, num_points, 2), dtype=np.float32),
+            np.empty((0, num_points), dtype=np.float32),
+            np.empty((0,), dtype=np.float32),
+        )
+    return (
+        np.asarray(signatures, dtype=np.float32),
+        np.asarray(speeds, dtype=np.float32),
+        np.asarray(durations, dtype=np.float32),
+    )
 
 
 def build_demonstration_dataset(
@@ -226,6 +276,11 @@ def build_demonstration_dataset(
     ``workers`` defaults to all available CPUs. Set it to ``1`` for deterministic
     single-process debugging.
     """
+
+    if num_points < 2:
+        raise ValueError("num_points must be at least 2")
+    if max_traces is not None and max_traces < 1:
+        raise ValueError("max_traces must be positive when provided")
 
     files = list(iter_tracker_files(source))
     if not files:

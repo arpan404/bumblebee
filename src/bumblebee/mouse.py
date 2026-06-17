@@ -5,217 +5,192 @@ from typing import Any
 import numpy as np
 import pyautogui
 
-from bumblebee.ai import Predictor
+_VALID_BUTTONS = {"left", "middle", "right", "primary", "secondary"}
+_MIN_PATH_POINTS = 18
+_MAX_PATH_POINTS = 120
+_TARGET_SEGMENT_LENGTH_PX = 12.0
+_MIN_SEGMENT_DISTANCE_PX = 5.0
+_FAST_SEGMENT_DISTANCE_PX = 40.0
+_SHORT_MOVE_DURATION_THRESHOLD = 0.1
 
 
 class Mouse:
     def __init__(self):
-        self.__predictor = (
-            Predictor()
-        )  # predictor instance for AI prediction of mouse path
-        self.__setup_pyautogui()  # setup pyautogui for mouse movement
-        """
-        Base mouse movement speed in pixels/second. Has greater impact over longer distances.
-        For shorter movements, speed differences are less noticeable but still maintained using sleeping techniques.
-        """
-        self.__SPEED = 2000  # 2000 pixels/second feels natural
+        self.__setup_pyautogui()
+        self.__SPEED = 2000.0
 
-    def __setup_pyautogui(self):
+    def __setup_pyautogui(self) -> None:
         pyautogui.MINIMUM_DURATION = 0
-        pyautogui.PAUSE = 0.001  # setting the pause time of pyautogui in each move to 1ms; default is 100ms
-        pyautogui.FAILSAFE = False  # required to allow mouse to move to corners
+        pyautogui.PAUSE = 0.001
+        pyautogui.FAILSAFE = False
 
-    def __assert_valid_button(self, button: str):
+    def __assert_valid_button(self, button: str) -> None:
         assert isinstance(button, str), "Invalid button type:{}".format(type(button))
-        assert button in [
-            "left",
-            "middle",
-            "right",
-            "primary",
-            "secondary",
-        ], "Invalid button:{}. Button must be one of 'left', 'middle', 'right', 'primary', 'secondary'.".format(
-            button
+        assert (
+            button in _VALID_BUTTONS
+        ), "Invalid button:{}. Button must be one of {}.".format(
+            button, ", ".join(sorted(_VALID_BUTTONS))
         )
 
+    @staticmethod
+    def __calculate_distance(start: np.ndarray, destination: np.ndarray) -> float:
+        start = np.asarray(start, dtype=np.float64)
+        destination = np.asarray(destination, dtype=np.float64)
+        return float(np.linalg.norm(destination - start))
+
+    def __speed_for_segment(self, distance: float) -> float:
+        if distance >= _FAST_SEGMENT_DISTANCE_PX:
+            return self.__SPEED * random.uniform(1.0, 1.1) * 1.2
+        return self.__SPEED * random.uniform(0.95, 1.05)
+
+    def __generate_path(self, start: np.ndarray, destination: np.ndarray) -> np.ndarray:
+        """Generate a smooth stochastic cursor path without a bundled model."""
+
+        start = np.asarray(start, dtype=np.float32)
+        destination = np.asarray(destination, dtype=np.float32)
+        distance = self.__calculate_distance(start, destination)
+        if distance <= 0:
+            return np.array([[start[0], start[1], 1.0]], dtype=np.float32)
+
+        point_count = int(
+            np.clip(
+                distance / _TARGET_SEGMENT_LENGTH_PX,
+                _MIN_PATH_POINTS,
+                _MAX_PATH_POINTS,
+            )
+        )
+        t = np.linspace(0.0, 1.0, point_count, dtype=np.float32)
+        direction = destination - start
+        unit = direction / distance
+        perpendicular = np.array([-unit[1], unit[0]], dtype=np.float32)
+
+        curve_strength = min(distance * 0.18, 160.0)
+        control_1 = (
+            start
+            + direction * random.uniform(0.20, 0.42)
+            + perpendicular * random.uniform(-curve_strength, curve_strength)
+        )
+        control_2 = (
+            start
+            + direction * random.uniform(0.58, 0.85)
+            + perpendicular * random.uniform(-curve_strength, curve_strength)
+        )
+
+        one_minus_t = 1.0 - t
+        points = (
+            (one_minus_t**3)[:, None] * start
+            + (3 * one_minus_t**2 * t)[:, None] * control_1
+            + (3 * one_minus_t * t**2)[:, None] * control_2
+            + (t**3)[:, None] * destination
+        )
+
+        rng = np.random.default_rng()
+        jitter = rng.normal(0.0, min(distance * 0.015, 8.0), size=point_count)
+        points += (np.sin(np.pi * t) * jitter)[:, None] * perpendicular
+        points[0] = start
+        points[-1] = destination
+
+        screen_width, screen_height = pyautogui.size()
+        points[:, 0] = np.clip(points[:, 0], 0, screen_width - 1)
+        points[:, 1] = np.clip(points[:, 1], 0, screen_height - 1)
+
+        speed_factor = 1.15 - 0.45 * np.sin(np.pi * t)
+        speed_factor += rng.normal(0.0, 0.03, size=point_count)
+        speed_factor = np.clip(speed_factor, 0.65, 1.25)
+
+        return np.column_stack([points, speed_factor]).astype(np.float32)
+
     def __prepare_data_for_move(self, path_points: np.ndarray) -> np.ndarray:
-        """
-        Processes path points data to generate mouse movement commands.
+        """Convert path points into ``x, y, move_duration, sleep_duration`` rows."""
 
-        Takes a NumPy array containing path coordinates with x, y positions and speed scaling
-        factors for each point. Analyzes distances between points and calculates appropriate
-        movement timing parameters for natural-looking cursor motion.
+        path_points = np.asarray(path_points, dtype=np.float64)
+        if path_points.ndim != 2 or path_points.shape[1] != 3:
+            raise ValueError("path_points must have shape (N, 3)")
+        if len(path_points) < 2:
+            return np.empty((0, 4), dtype=np.float64)
 
-        Args:
-            path_points (np.ndarray): 2D array of shape (N,3) containing:
-                - Column 0: X coordinates
-                - Column 1: Y coordinates
-                - Column 2: Speed modifier factors
+        x = path_points[:, 0]
+        y = path_points[:, 1]
+        speed_factor = path_points[:, 2]
+        adjacent_distances = np.insert(np.hypot(np.diff(x), np.diff(y)), 0, 0.0)
 
-        Returns:
-            np.ndarray: 2D array of shape (M,4) containing:
-                - Column 0: Target X position (pixels)
-                - Column 1: Target Y position (pixels)
-                - Column 2: Duration of movement (seconds)
-                - Column 3: Sleep delay after movement (seconds)
-
-        Note: M may be less than N since some points are filtered out if too close together.
-
-        """
-
-        x, y, speed_factor = path_points[:, 0], path_points[:, 1], path_points[:, 2]
-        total_points = len(x)
-
-        adjacent_distances = np.sqrt(
-            np.diff(x) ** 2 + np.diff(y) ** 2
-        )  # Calculate the distance between adjacent points, arr[next_index] - array[current_index
-        adjacent_distances = np.insert(
-            adjacent_distances, 0, 0
-        )  # Insert a zero at the beginning of the array, to handle the first point; first point has no previous point
-        distance_to_last_position = 0  # keep track of the distance to the last position if the distance is less than 5px
-        data_required_for_move = np.array([])
-
-        for i in range(1, total_points):
-            distance = adjacent_distances[i]
-
-            """
-            Skip the point, if its distance to the previous point is less than 5px.
-            For most small distances, pyautogui will take 0seconds to move the mouse.
-            So, we can skip the point to avoid small movements making the mouse jittery.
-            """
-            if (
-                distance < 5.0
-            ):  # skip the point if distance between it and the previous point is less than 5px; doing it to avoid small movements making the mouse jittery
-                distance_to_last_position += distance
+        rows: list[tuple[int, int, float, float]] = []
+        accumulated_distance = 0.0
+        for index in range(1, len(path_points)):
+            distance = float(adjacent_distances[index])
+            is_final_point = index == len(path_points) - 1
+            if distance < _MIN_SEGMENT_DISTANCE_PX and not is_final_point:
+                accumulated_distance += distance
                 continue
 
-            X = int(x[i])
-            Y = int(y[i])
+            movement_distance = distance + accumulated_distance
+            if movement_distance <= 0:
+                continue
 
-            if distance >= 40.0:  # increase the speed if distance is greater than 40px
-                speed = self.__SPEED * random.uniform(1, 1.1) * 1.2
-            else:
-                speed = self.__SPEED * random.uniform(
-                    0.95, 1.05
-                )  # randomize the speed to make it more natural
-
-            distance += distance_to_last_position
-
-            time_to_move = round(((distance / speed) * speed_factor[i]), 4)
-            move_duration = (
-                0.0 if time_to_move < 0.1 else time_to_move
-            )  # the time <= 0.1 is considered 0.0 by pyautogui, so we will use sleep method to sleep for duration < 0.1s manually
-            to_sleep_duration = round((time_to_move - move_duration), 6)
-            distance_to_last_position = 0
-            data_required_for_move = np.append(
-                data_required_for_move, [X, Y, move_duration, to_sleep_duration]
+            speed = self.__speed_for_segment(movement_distance)
+            time_to_move = round(
+                (movement_distance / speed) * float(speed_factor[index]), 4
             )
+            move_duration = (
+                0.0 if time_to_move < _SHORT_MOVE_DURATION_THRESHOLD else time_to_move
+            )
+            sleep_duration = max(0.0, round(time_to_move - move_duration, 6))
+            rows.append((int(x[index]), int(y[index]), move_duration, sleep_duration))
+            accumulated_distance = 0.0
 
-        return data_required_for_move.reshape(-1, 4)
+        if not rows:
+            return np.empty((0, 4), dtype=np.float64)
+        return np.asarray(rows, dtype=np.float64)
 
-    def set_speed(self, speed: float | int):
-        """
-        Set the speed of the mouse cursor.
-        Args:
-            speed (float): The speed of the mouse cursor. The speed is measured in pixels per second.
+    def set_speed(self, speed: float | int) -> None:
+        """Set the base mouse cursor speed in pixels per second."""
 
-        Raises:
-            AssertionError: If the speed is not greater than 0.
-            AssertionError: If the speed is not a float.
-        """
+        assert isinstance(speed, (float, int)), "Speed must be either float or int"
         assert speed > 0, "Speed must be greater than 0"
-        assert isinstance(speed, float) or isinstance(
-            speed, int
-        ), "Speed must be either float or int"
-        self.__SPEED = speed
+        self.__SPEED = float(speed)
 
-    def click(self, button: Any = "left"):
-        """
-        Simulates a mouse click at the current position.
+    def click(self, button: Any = "left") -> None:
+        """Simulate a mouse click at the current position."""
 
-        Args:
-            button (str): The mouse button to click. Defaults to 'left'. Options: 'left', 'middle', 'right', 'primary', 'secondary'
-        """
         self.__assert_valid_button(button)
         time.sleep(random.uniform(0.05, 0.1))
         pyautogui.click(button=button)
 
-    def move(self, destX, destY):
-        """
-        Move the mouse cursor to the specified coordinates.
-        The movement is simulated using a series of path points generated by a predictive model.
+    def move(self, destX, destY) -> None:
+        """Move the mouse cursor to the specified coordinates."""
 
-        Args:
-            destX (int): The x-coordinate to move to.
-            destY (int): The y-coordinate to move to.
-        """
         currentX, currentY = pyautogui.position()
-
         start = np.array([currentX, currentY], dtype=np.float32)
         destination = np.array([destX, destY], dtype=np.float32)
         if np.array_equal(start, destination):
             return
 
-        path_points = self.__predictor.predict(start, destination)
-
-        """
-        Calculate movement parameters for each point (speed, distance, duration, sleep time)
-        before executing movement to prevent lag during mouse movement.
-        We prepare all calculations first via __prepare_data_for_move() rather than
-        calculating during movement to ensure smooth cursor motion.
-        """
+        path_points = self.__generate_path(start, destination)
         path_data = self.__prepare_data_for_move(path_points)
 
-        del path_points
+        for x, y, move_duration, sleep_duration in path_data:
+            pyautogui.moveTo(int(x), int(y), duration=float(move_duration))
+            time.sleep(float(sleep_duration))
 
-        for data in path_data:
-            X, Y, move_duration, sleep_duration = data
-            pyautogui.moveTo(X, Y, duration=move_duration)
-            time.sleep(sleep_duration)
-
-    def drag_to(self, destX, destY, button: str = "left"):
-        """
-        Simulates dragging the mouse to a destination.
-
-        Unlike move() method, this method does not simulate human behavior.
-        It utilizes native PyAutoGUI functionality, but with a custom speed prediction.
-
-        Args:
-            destX (int): The x-coordinate of the destination.
-            destY (int): The y-coordinate of the destination.
-            button (str): The mouse button to drag with. Defaults to 'left'. Options: 'left', 'middle', 'right', 'primary', 'secondary'.
-
-        Raises:
-            AssertionError: If the button is not valid.
-        """
+    def drag_to(self, destX, destY, button: str = "left") -> None:
+        """Drag the mouse to a destination using distance-based duration."""
 
         self.__assert_valid_button(button)
         current_coordinates = np.array(pyautogui.position())
         dest_coordinates = np.array([destX, destY])
-        distance = self.__predictor._calculate_distance(
-            current_coordinates, dest_coordinates
-        )  # calculate distance between current and destination coordinates
+        distance = self.__calculate_distance(current_coordinates, dest_coordinates)
 
         time.sleep(random.uniform(0.05, 0.1))
         duration = (
             distance / self.__SPEED
             if not np.array_equal(current_coordinates, dest_coordinates)
             else random.uniform(0.5, 1)
-        )  # make duration longer if we are returning to the same position
-
+        )
         pyautogui.dragTo(destX, destY, duration=duration, button=button)
 
-    def move_to_and_click(self, destX, destY, button: Any = "left"):
-        """
-        Move the mouse cursor to the specified coordinates and click.
+    def move_to_and_click(self, destX, destY, button: Any = "left") -> None:
+        """Move the mouse cursor to the specified coordinates and click."""
 
-        Args:
-            destX (int): The x-coordinate of the destination.
-            destY (int): The y-coordinate of the destination.
-            button (str): The button to click. Defaults to "left".
-
-        Raises:
-            AssertionError: If the button is not "left", "middle", "right", "primary", or "secondary".
-        """
         self.move(destX, destY)
         time.sleep(random.uniform(0.1, 1.4))
         self.click(button)
