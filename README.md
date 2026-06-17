@@ -90,7 +90,7 @@ uv sync --group train
 ### Mouse control
 
 ```python
-from bumblebee import Mouse
+from bumblebee import Mouse, MouseBounds
 
 mouse = Mouse(fail_safe=True)
 mouse.set_speed(1000)
@@ -103,6 +103,10 @@ mouse.right_click()
 mouse.scroll(-3)
 mouse.drag_to(500, 500)
 mouse.move_to_and_click(150, 250)
+
+# Randomly choose a safe click point inside a detected UI rectangle.
+mouse.click_in_bounds(MouseBounds(100, 200, 260, 240), padding=6)
+mouse.click_in_rect(100, 200, 160, 40, padding=6)  # x, y, width, height
 ```
 
 Use profiles for different movement styles:
@@ -138,7 +142,7 @@ mouse = Mouse(path_provider=policy_path)
 mouse.move(700, 450)
 ```
 
-Bumblebee does not add extra jitter or curve decoration to provided paths.
+Bumblebee does not add extra jitter or curve decoration to provided paths. If the provided path reaches the target early, Bumblebee trims the rest and snaps the final point to the requested destination. If the path misses the destination, Bumblebee appends a final correction segment.
 
 ### Keyboard control
 
@@ -236,6 +240,9 @@ uv run --group train python scripts/visualize_mouse_policy.py \
 | `move_path(path)` | Execute a custom `N x 2` or `N x 3` path. |
 | `click(...)`, `double_click()`, `right_click()` | Click helpers. |
 | `click_at(x, y, ...)` | Move then click. |
+| `random_point_in_bounds(bounds)` | Pick a random point inside a rectangle. |
+| `click_in_bounds(bounds, ...)` | Click a random point inside `MouseBounds` or `(left, top, right, bottom)`. |
+| `click_in_rect(x, y, width, height, ...)` | Click a random point inside an `x/y/width/height` rectangle. |
 | `mouse_down()`, `mouse_up()` | Low-level button controls. |
 | `drag_to(...)`, `drag_relative(...)` | Drag controls. |
 | `scroll(clicks)` | Scroll up/down. |

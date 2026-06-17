@@ -13,10 +13,20 @@ import pyautogui
 _VALID_BUTTONS = {"left", "middle", "right", "primary", "secondary"}
 
 
+def _finite_number(name: str, value: Any) -> float:
+    if isinstance(value, bool) or not isinstance(value, Real):
+        raise TypeError(f"{name} must be a finite number")
+    value = float(value)
+    if not math.isfinite(value):
+        raise ValueError(f"{name} must be finite")
+    return value
+
+
 def _validate_range(name: str, value: tuple[float, float]) -> None:
     if len(value) != 2:
         raise ValueError(f"{name} must contain exactly two values")
-    start, end = value
+    start = _finite_number(f"{name}[0]", value[0])
+    end = _finite_number(f"{name}[1]", value[1])
     if start < 0 or end < 0:
         raise ValueError(f"{name} cannot contain negative values")
     if end < start:
@@ -29,6 +39,79 @@ class MouseMoveStep:
     y: int
     move_duration: float
     sleep_duration: float
+
+
+@dataclass(frozen=True)
+class MouseBounds:
+    """Clickable rectangle represented as left/top/right/bottom coordinates."""
+
+    left: float
+    top: float
+    right: float
+    bottom: float
+
+    def __post_init__(self) -> None:
+        left = _finite_number("left", self.left)
+        top = _finite_number("top", self.top)
+        right = _finite_number("right", self.right)
+        bottom = _finite_number("bottom", self.bottom)
+        if right < left:
+            raise ValueError("right must be >= left")
+        if bottom < top:
+            raise ValueError("bottom must be >= top")
+        object.__setattr__(self, "left", left)
+        object.__setattr__(self, "top", top)
+        object.__setattr__(self, "right", right)
+        object.__setattr__(self, "bottom", bottom)
+
+    @classmethod
+    def from_xywh(
+        cls, x: int | float, y: int | float, width: int | float, height: int | float
+    ) -> "MouseBounds":
+        x = _finite_number("x", x)
+        y = _finite_number("y", y)
+        width = _finite_number("width", width)
+        height = _finite_number("height", height)
+        if width < 0:
+            raise ValueError("width must be non-negative")
+        if height < 0:
+            raise ValueError("height must be non-negative")
+        return cls(x, y, x + width, y + height)
+
+    @property
+    def width(self) -> float:
+        return self.right - self.left
+
+    @property
+    def height(self) -> float:
+        return self.bottom - self.top
+
+    def padded(self, padding: int | float) -> "MouseBounds":
+        padding = _finite_number("padding", padding)
+        if padding < 0:
+            raise ValueError("padding cannot be negative")
+        return MouseBounds(
+            self.left + padding,
+            self.top + padding,
+            self.right - padding,
+            self.bottom - padding,
+        )
+
+    def clamped_to_screen(self, width: int, height: int) -> "MouseBounds":
+        if width <= 0 or height <= 0:
+            raise ValueError("screen width and height must be positive")
+        left = max(self.left, 0.0)
+        right = min(self.right, width - 1)
+        top = max(self.top, 0.0)
+        bottom = min(self.bottom, height - 1)
+        if right < left or bottom < top:
+            raise ValueError("bounds do not intersect the screen")
+        return MouseBounds(left, top, right, bottom)
+
+    def sample(self, rng: random.Random) -> tuple[int, int]:
+        return int(round(rng.uniform(self.left, self.right))), int(
+            round(rng.uniform(self.top, self.bottom))
+        )
 
 
 @dataclass(frozen=True)
@@ -48,6 +131,9 @@ class MouseProfile:
     curve_strength: float = 0.0
     max_curve_px: float = 120.0
     jitter_px: float = 0.0
+    target_radius_px: float = 8.0
+    force_destination: bool = True
+    trim_after_target_reached: bool = True
     click_pause_range: tuple[float, float] = (0.05, 0.10)
     post_move_click_pause_range: tuple[float, float] = (0.10, 1.40)
 
@@ -62,6 +148,7 @@ class MouseProfile:
             "min_speed_factor": self.min_speed_factor,
             "max_speed_factor": self.max_speed_factor,
             "max_curve_px": self.max_curve_px,
+            "target_radius_px": self.target_radius_px,
         }
         for name, value in positive_fields.items():
             if value <= 0:
@@ -102,7 +189,7 @@ MOUSE_PROFILES = {
 
 MousePathProvider = Callable[[np.ndarray, np.ndarray], np.ndarray]
 
-__all__ = ["Mouse", "MouseMoveStep", "MouseProfile", "MOUSE_PROFILES"]
+__all__ = ["Mouse", "MouseBounds", "MouseMoveStep", "MouseProfile", "MOUSE_PROFILES"]
 
 
 class Mouse:
@@ -175,12 +262,7 @@ class Mouse:
 
     @staticmethod
     def _validate_number(name: str, value: Any) -> float:
-        if isinstance(value, bool) or not isinstance(value, Real):
-            raise TypeError(f"{name} must be a finite number")
-        value = float(value)
-        if not math.isfinite(value):
-            raise ValueError(f"{name} must be finite")
-        return value
+        return _finite_number(name, value)
 
     @classmethod
     def _point(cls, x: Any, y: Any) -> np.ndarray:
@@ -264,6 +346,66 @@ class Mouse:
         clipped[:, 1] = np.clip(clipped[:, 1], 0, height - 1)
         return clipped
 
+    @staticmethod
+    def _segment_reaches_point(
+        start: np.ndarray, end: np.ndarray, target: np.ndarray, radius: float
+    ) -> bool:
+        segment = end - start
+        length_sq = float(np.dot(segment, segment))
+        if length_sq <= 1e-9:
+            closest = start
+        else:
+            t = float(np.dot(target - start, segment) / length_sq)
+            t = min(max(t, 0.0), 1.0)
+            closest = start + t * segment
+        return float(np.linalg.norm(closest - target)) <= radius
+
+    def _trim_or_force_destination(
+        self,
+        path_points: np.ndarray,
+        destination: np.ndarray,
+        *,
+        force_destination: bool,
+        trim_after_target_reached: bool,
+        target_radius_px: float,
+    ) -> np.ndarray:
+        if target_radius_px <= 0:
+            raise ValueError("target_radius_px must be positive")
+
+        if trim_after_target_reached:
+            for index in range(1, len(path_points)):
+                previous_xy = path_points[index - 1, :2]
+                current_xy = path_points[index, :2]
+                if self._segment_reaches_point(
+                    previous_xy, current_xy, destination, target_radius_px
+                ):
+                    trimmed = path_points[:index].copy()
+                    destination_row = np.array(
+                        [[destination[0], destination[1], path_points[index, 2]]],
+                        dtype=np.float64,
+                    )
+                    if (
+                        len(trimmed) == 0
+                        or self._distance(trimmed[-1, :2], destination) > 1e-9
+                    ):
+                        trimmed = np.concatenate([trimmed, destination_row], axis=0)
+                    else:
+                        trimmed[-1, :2] = destination
+                    return trimmed
+
+        if force_destination:
+            if self._distance(path_points[-1, :2], destination) <= target_radius_px:
+                path_points = path_points.copy()
+                path_points[-1, :2] = destination
+                return path_points
+            destination_row = np.array(
+                [[destination[0], destination[1], path_points[-1, 2]]],
+                dtype=np.float64,
+            )
+            return np.concatenate([path_points, destination_row], axis=0)
+
+        return path_points
+
     def _generate_procedural_path(
         self, start: np.ndarray, destination: np.ndarray
     ) -> np.ndarray:
@@ -320,6 +462,9 @@ class Mouse:
         *,
         start: np.ndarray,
         destination: np.ndarray | None = None,
+        force_destination: bool | None = None,
+        trim_after_target_reached: bool | None = None,
+        target_radius_px: float | None = None,
     ) -> np.ndarray:
         path_points = np.asarray(path_points, dtype=np.float64)
         if path_points.ndim != 2 or path_points.shape[1] not in {2, 3}:
@@ -345,15 +490,28 @@ class Mouse:
         rows = [path_points]
         if self._distance(path_points[0, :2], start) > 1.0:
             rows.insert(0, np.array([[start[0], start[1], path_points[0, 2]]]))
-        if (
-            destination is not None
-            and self._distance(path_points[-1, :2], destination) > 1.0
-        ):
-            rows.append(
-                np.array([[destination[0], destination[1], path_points[-1, 2]]])
+        normalized = np.concatenate(rows, axis=0)
+        if destination is not None:
+            normalized = self._trim_or_force_destination(
+                normalized,
+                destination,
+                force_destination=(
+                    self._profile.force_destination
+                    if force_destination is None
+                    else force_destination
+                ),
+                trim_after_target_reached=(
+                    self._profile.trim_after_target_reached
+                    if trim_after_target_reached is None
+                    else trim_after_target_reached
+                ),
+                target_radius_px=(
+                    self._profile.target_radius_px
+                    if target_radius_px is None
+                    else target_radius_px
+                ),
             )
 
-        normalized = np.concatenate(rows, axis=0)
         normalized[:, :2] = self._clip_points_to_screen(normalized[:, :2])
         return normalized
 
@@ -444,6 +602,53 @@ class Mouse:
         width, height = self._controller.size()
         return int(width), int(height)
 
+    @staticmethod
+    def _coerce_bounds(
+        bounds: MouseBounds | tuple[float, float, float, float],
+    ) -> MouseBounds:
+        if isinstance(bounds, MouseBounds):
+            return bounds
+        try:
+            left, top, right, bottom = bounds
+        except (TypeError, ValueError) as exc:
+            raise TypeError(
+                "bounds must be MouseBounds or a (left, top, right, bottom) tuple"
+            ) from exc
+        return MouseBounds(left, top, right, bottom)
+
+    def random_point_in_bounds(
+        self,
+        bounds: MouseBounds | tuple[float, float, float, float],
+        *,
+        padding: int | float = 0,
+        clamp_to_screen: bool = True,
+    ) -> tuple[int, int]:
+        """Choose a random point inside a clickable rectangle."""
+
+        area = self._coerce_bounds(bounds).padded(padding)
+        if clamp_to_screen:
+            width, height = self.screen_size()
+            area = area.clamped_to_screen(width, height)
+        return area.sample(self._rng)
+
+    def random_point_in_rect(
+        self,
+        x: int | float,
+        y: int | float,
+        width: int | float,
+        height: int | float,
+        *,
+        padding: int | float = 0,
+        clamp_to_screen: bool = True,
+    ) -> tuple[int, int]:
+        """Choose a random point inside an ``x, y, width, height`` rectangle."""
+
+        return self.random_point_in_bounds(
+            MouseBounds.from_xywh(x, y, width, height),
+            padding=padding,
+            clamp_to_screen=clamp_to_screen,
+        )
+
     def generate_path(
         self,
         destX: int | float,
@@ -463,8 +668,21 @@ class Mouse:
         destination = self._point(destX, destY)
         return self._path_to(start_point, destination)
 
-    def move_path(self, path_points: np.ndarray) -> None:
-        """Execute a prepared path with shape ``(N, 2)`` or ``(N, 3)``."""
+    def move_path(
+        self,
+        path_points: np.ndarray,
+        *,
+        destination: tuple[int | float, int | float] | np.ndarray | None = None,
+        force_destination: bool | None = None,
+        trim_after_target_reached: bool | None = None,
+        target_radius_px: float | None = None,
+    ) -> None:
+        """Execute a prepared path with shape ``(N, 2)`` or ``(N, 3)``.
+
+        When ``destination`` is provided, the path is trimmed once it reaches the
+        target radius and/or forced to end exactly at that destination, depending on
+        the active profile and optional flags.
+        """
 
         path_points = np.asarray(path_points, dtype=np.float64)
         if path_points.ndim != 2 or path_points.shape[1] not in {2, 3}:
@@ -473,11 +691,18 @@ class Mouse:
             return
 
         current = np.asarray(self.position(), dtype=np.float64)
-        destination = path_points[-1, :2]
+        target = (
+            self._point(destination[0], destination[1])
+            if destination is not None
+            else path_points[-1, :2]
+        )
         path_points = self._normalize_path_points(
             path_points,
             start=current,
-            destination=destination,
+            destination=target,
+            force_destination=force_destination,
+            trim_after_target_reached=trim_after_target_reached,
+            target_radius_px=target_radius_px,
         )
         for step in self._prepare_data_for_move(path_points):
             self._controller.moveTo(step.x, step.y, duration=step.move_duration)
@@ -490,7 +715,7 @@ class Mouse:
         start = np.asarray(self.position(), dtype=np.float64)
         if self._distance(start, destination) <= 0:
             return
-        self.move_path(self._path_to(start, destination))
+        self.move_path(self._path_to(start, destination), destination=destination)
 
     def move_to(self, destX: int | float, destY: int | float) -> None:
         """Alias for :meth:`move`."""
@@ -535,6 +760,95 @@ class Mouse:
     ) -> None:
         self.move(destX, destY)
         self.click(button=button, clicks=clicks, interval=interval)
+
+    def move_to_random_in_bounds(
+        self,
+        bounds: MouseBounds | tuple[float, float, float, float],
+        *,
+        padding: int | float = 0,
+        clamp_to_screen: bool = True,
+    ) -> tuple[int, int]:
+        """Move to a random coordinate inside bounds and return that coordinate."""
+
+        x, y = self.random_point_in_bounds(
+            bounds,
+            padding=padding,
+            clamp_to_screen=clamp_to_screen,
+        )
+        self.move(x, y)
+        return x, y
+
+    def move_to_random_in_rect(
+        self,
+        x: int | float,
+        y: int | float,
+        width: int | float,
+        height: int | float,
+        *,
+        padding: int | float = 0,
+        clamp_to_screen: bool = True,
+    ) -> tuple[int, int]:
+        """Move to a random coordinate inside an ``x, y, width, height`` rectangle."""
+
+        return self.move_to_random_in_bounds(
+            MouseBounds.from_xywh(x, y, width, height),
+            padding=padding,
+            clamp_to_screen=clamp_to_screen,
+        )
+
+    def click_in_bounds(
+        self,
+        bounds: MouseBounds | tuple[float, float, float, float],
+        button: str = "left",
+        *,
+        clicks: int = 1,
+        interval: float | None = None,
+        padding: int | float = 0,
+        clamp_to_screen: bool = True,
+    ) -> tuple[int, int]:
+        """Click a random coordinate inside bounds and return that coordinate."""
+
+        x, y = self.move_to_random_in_bounds(
+            bounds,
+            padding=padding,
+            clamp_to_screen=clamp_to_screen,
+        )
+        self.click(button=button, clicks=clicks, interval=interval)
+        return x, y
+
+    def click_in_rect(
+        self,
+        x: int | float,
+        y: int | float,
+        width: int | float,
+        height: int | float,
+        button: str = "left",
+        *,
+        clicks: int = 1,
+        interval: float | None = None,
+        padding: int | float = 0,
+        clamp_to_screen: bool = True,
+    ) -> tuple[int, int]:
+        """Click a random coordinate inside an ``x, y, width, height`` rectangle."""
+
+        return self.click_in_bounds(
+            MouseBounds.from_xywh(x, y, width, height),
+            button=button,
+            clicks=clicks,
+            interval=interval,
+            padding=padding,
+            clamp_to_screen=clamp_to_screen,
+        )
+
+    def click_random_in(
+        self,
+        bounds: MouseBounds | tuple[float, float, float, float],
+        button: str = "left",
+        **kwargs: Any,
+    ) -> tuple[int, int]:
+        """Alias for :meth:`click_in_bounds`."""
+
+        return self.click_in_bounds(bounds, button=button, **kwargs)
 
     def mouse_down(self, button: str = "left") -> None:
         self._controller.mouseDown(button=self._validate_button(button))
