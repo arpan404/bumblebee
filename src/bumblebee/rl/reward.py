@@ -6,25 +6,26 @@ from .geometry import curvature, resample_polyline, to_local_frame
 
 
 class ImitationReward:
-    """Reward path, turn/curvature, and velocity similarity to a real demo.
+    """Terminal imitation bonus for successful trajectories only.
 
-    This intentionally does not reward only endpoint distance. A rollout receives high
-    reward when it reaches the target with a human-like path shape, stochastic turns,
-    and speed pattern similar to the sampled demonstration.
+    Reaching the destination is the primary objective. Path/velocity/turn matching is
+    only used as a bonus after the agent has reached the target. This prevents the
+    policy from earning meaningful reward for drawing a beautiful human-like path
+    that never arrives at the destination.
     """
 
     def __init__(
         self,
         *,
-        path_weight: float = 0.45,
-        speed_weight: float = 0.30,
+        path_weight: float = 0.40,
+        speed_weight: float = 0.25,
         turn_weight: float = 0.20,
-        endpoint_weight: float = 0.05,
+        efficiency_weight: float = 0.15,
     ) -> None:
         self.path_weight = path_weight
         self.speed_weight = speed_weight
         self.turn_weight = turn_weight
-        self.endpoint_weight = endpoint_weight
+        self.efficiency_weight = efficiency_weight
 
     def __call__(
         self,
@@ -62,13 +63,17 @@ class ImitationReward:
         )
         turn_score = float(np.exp(-2.0 * turn_error))
 
-        endpoint_error = float(np.linalg.norm(rollout_points[-1] - destination))
-        target_distance = max(float(np.linalg.norm(destination - start)), 1.0)
-        endpoint_score = float(np.exp(-endpoint_error / target_distance))
+        direct_distance = max(float(np.linalg.norm(destination - start)), 1.0)
+        traveled_distance = float(
+            np.sum(np.linalg.norm(np.diff(rollout_points, axis=0), axis=1))
+        )
+        efficiency_score = float(
+            np.clip(direct_distance / max(traveled_distance, 1.0), 0.0, 1.0)
+        )
 
         return (
             self.path_weight * path_score
             + self.speed_weight * speed_score
             + self.turn_weight * turn_score
-            + self.endpoint_weight * endpoint_score
+            + self.efficiency_weight * efficiency_score
         )

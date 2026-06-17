@@ -17,12 +17,14 @@ from .types import MouseTrace
 class CleaningConfig:
     min_points: int = 8
     min_distance_px: float = 20.0
+    min_duration_seconds: float = 0.05
     pause_seconds: float = 0.75
     max_jump_px: float = 500.0
     stationary_epsilon_px: float = 0.5
     max_duration_seconds: float = 8.0
     min_avg_speed_px_s: float = 50.0
     max_avg_speed_px_s: float = 8000.0
+    max_instant_speed_px_s: float = 20_000.0
 
 
 @dataclass(frozen=True)
@@ -59,18 +61,29 @@ class MouseDemonstrationDataset:
             durations=self.durations,
         )
 
-    def sample(
-        self, start: np.ndarray, destination: np.ndarray, rng: np.random.Generator
-    ) -> Demonstration:
-        """Sample one real path style and transform it to the requested coordinates."""
+    def sample_index(self, rng: np.random.Generator) -> int:
+        """Sample a demonstration id without transforming the path yet."""
 
-        index = int(rng.integers(0, len(self.signatures)))
+        return int(rng.integers(0, len(self.signatures)))
+
+    def get(
+        self, index: int, start: np.ndarray, destination: np.ndarray
+    ) -> Demonstration:
+        """Transform a stored path signature to the requested coordinates."""
+
         path = from_local_frame(self.signatures[index], start, destination)
         return Demonstration(
             path=path,
             speed_profile=self.speed_profiles[index],
             duration=float(self.durations[index]),
         )
+
+    def sample(
+        self, start: np.ndarray, destination: np.ndarray, rng: np.random.Generator
+    ) -> Demonstration:
+        """Sample one real path style and transform it to the requested coordinates."""
+
+        return self.get(self.sample_index(rng), start, destination)
 
 
 def iter_tracker_files(source: str | Path) -> Iterable[Path]:
@@ -102,8 +115,10 @@ def clean_and_segment(
 ) -> list[MouseTrace]:
     """Split raw cursor stream into clean movement traces.
 
-    Segmentation cuts on long pauses, impossible jumps, duplicate timestamps, and stationary stretches.
-    This keeps real stochastic path/velocity examples while removing idle cursor samples.
+    Cuts happen on invalid timestamps, impossible jumps, long gaps, and sustained
+    stationary pauses. The sustained-pause logic is important for the tracker data:
+    repeated identical samples every few milliseconds should still split a movement
+    once the cursor has been idle for ``pause_seconds``.
     """
 
     if len(points) < config.min_points:
@@ -111,21 +126,52 @@ def clean_and_segment(
 
     traces: list[MouseTrace] = []
     current: list[np.ndarray] = [points[0]]
+    idle_started_at: float | None = None
+    last_stationary_point = points[0]
 
     for previous, point in zip(points[:-1], points[1:]):
         dt = float(point[2] - previous[2])
-        dist = float(np.linalg.norm(point[:2] - previous[:2]))
+        if dt <= 0:
+            _append_trace(traces, current, config)
+            current = [point]
+            idle_started_at = None
+            continue
 
-        should_cut = dt <= 0 or dt > config.pause_seconds or dist > config.max_jump_px
-        is_stationary = dist <= config.stationary_epsilon_px
+        dist = float(np.linalg.norm(point[:2] - previous[:2]))
+        instant_speed = dist / dt
+        should_cut = (
+            dt > config.pause_seconds
+            or dist > config.max_jump_px
+            or instant_speed > config.max_instant_speed_px_s
+        )
 
         if should_cut:
             _append_trace(traces, current, config)
             current = [point]
+            idle_started_at = None
+            last_stationary_point = point
             continue
 
-        if not is_stationary:
-            current.append(point)
+        is_stationary = dist <= config.stationary_epsilon_px
+        if is_stationary:
+            if idle_started_at is None:
+                idle_started_at = float(previous[2])
+            last_stationary_point = point
+            if float(point[2]) - idle_started_at >= config.pause_seconds:
+                _append_trace(traces, current, config)
+                current = [point]
+                idle_started_at = float(point[2])
+            continue
+
+        if idle_started_at is not None:
+            # Movement resumed after a short pause. Keep the last idle coordinate as
+            # the start of the resumed movement, but split if the pause was long.
+            if float(previous[2]) - idle_started_at >= config.pause_seconds:
+                _append_trace(traces, current, config)
+                current = [last_stationary_point]
+            idle_started_at = None
+
+        current.append(point)
 
     _append_trace(traces, current, config)
     return traces
@@ -141,6 +187,8 @@ def _append_trace(
     if trace.distance < config.min_distance_px or trace.duration <= 0:
         return
     avg_speed = trace.distance / trace.duration
+    if trace.duration < config.min_duration_seconds:
+        return
     if trace.duration > config.max_duration_seconds:
         return
     if avg_speed < config.min_avg_speed_px_s or avg_speed > config.max_avg_speed_px_s:

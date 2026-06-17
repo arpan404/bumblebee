@@ -62,9 +62,14 @@ class MouseTrace:
         sampled = resample_polyline(self.points[:, :2], num_points)
         local = to_local_frame(sampled, self.start, self.destination)
         speed = np.linalg.norm(self.velocities(), axis=1)
+        elapsed = self.points[:, 2] - self.points[0, 2]
+        if elapsed[-1] > 0:
+            normalized_time = elapsed / elapsed[-1]
+        else:
+            normalized_time = np.linspace(0, 1, len(speed))
         speed_profile = np.interp(
             np.linspace(0, 1, num_points),
-            np.linspace(0, 1, len(speed)),
+            normalized_time,
             speed,
         )
         max_speed = float(np.max(speed_profile))

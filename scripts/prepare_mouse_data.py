@@ -31,10 +31,18 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--min-points", type=int, default=8)
     parser.add_argument("--min-distance-px", type=float, default=20.0)
+    parser.add_argument("--min-duration-seconds", type=float, default=0.05)
     parser.add_argument("--max-duration-seconds", type=float, default=8.0)
     parser.add_argument("--min-avg-speed-px-s", type=float, default=50.0)
     parser.add_argument("--max-avg-speed-px-s", type=float, default=8000.0)
+    parser.add_argument("--max-instant-speed-px-s", type=float, default=20_000.0)
     parser.add_argument("--max-jump-px", type=float, default=500.0)
+    parser.add_argument(
+        "--workers",
+        type=int,
+        default=None,
+        help="Number of CPU workers. Defaults to all available cores.",
+    )
     return parser.parse_args()
 
 
@@ -43,17 +51,20 @@ def main() -> None:
     config = CleaningConfig(
         min_points=args.min_points,
         min_distance_px=args.min_distance_px,
+        min_duration_seconds=args.min_duration_seconds,
         pause_seconds=args.pause_seconds,
         max_jump_px=args.max_jump_px,
         max_duration_seconds=args.max_duration_seconds,
         min_avg_speed_px_s=args.min_avg_speed_px_s,
         max_avg_speed_px_s=args.max_avg_speed_px_s,
+        max_instant_speed_px_s=args.max_instant_speed_px_s,
     )
     dataset = build_demonstration_dataset(
         Path(args.source).expanduser(),
         num_points=args.num_points,
         config=config,
         max_traces=args.max_traces,
+        workers=args.workers,
     )
     dataset.save(args.output)
     print(
