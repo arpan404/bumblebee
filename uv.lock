@@ -1541,6 +1541,7 @@ dependencies = [
     { name = "numpy" },
     { name = "pyautogui" },
     { name = "pynput" },
+    { name = "pyperclip" },
 ]
 
 [package.dev-dependencies]
@@ -1563,6 +1564,7 @@ requires-dist = [
     { name = "numpy", specifier = ">=2.2.4" },
     { name = "pyautogui", specifier = ">=0.9.54" },
     { name = "pynput", specifier = ">=1.8.1" },
+    { name = "pyperclip", specifier = ">=1.9.0" },
 ]
 
 [package.metadata.requires-dev]

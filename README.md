@@ -60,6 +60,18 @@ mouse.move(100, 200)
 mouse.drag_to(233, 244)
 mouse.click(button="left")
 mouse.move_to_and_click(destX=150, destY=250, button="left")
+
+# Additional controls
+mouse.set_profile("precise")
+mouse.move_relative(25, -10)
+mouse.click_at(300, 400, clicks=2)
+mouse.right_click()
+mouse.scroll(-3)
+
+# Preview or execute a custom/RL-generated path. Bumblebee does not add
+# extra jitter/rounding to provided paths.
+path = mouse.generate_path(500, 600)
+mouse.move_path(path)
 ```
 
 #### Keyboard Control Example
@@ -72,6 +84,16 @@ keyboard.set_speed(new_speed=400)
 keyboard.set_typo_rate(3)
 keyboard.set_consistency(99)
 keyboard.type("Bumblebee is great.")
+
+# Additional controls
+keyboard.hotkey("cmd", "a")      # or "ctrl" on Windows/Linux
+keyboard.copy()
+keyboard.paste()
+keyboard.backspace(times=3)
+keyboard.arrow("left", times=2)
+keyboard.set_profile("careful")
+keyboard.type("Careful typing with fewer typos.", wpm=70, typo_rate=1)
+keyboard.type_or_paste("Long text can be pasted through the clipboard.")
 ```
 
 ---
