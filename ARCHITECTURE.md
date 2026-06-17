@@ -17,13 +17,14 @@ Bumblebee has two intentionally separate layers:
 
 2. **RL training/tooling layer**
    - `src/bumblebee/rl/**`
+   - `scripts/package_mouse_model.py`
    - `scripts/prepare_mouse_data.py`
    - `scripts/train_mouse_sac.py`
    - `scripts/visualize_mouse_policy.py`
    - Used to clean mouse-tracker data, train SAC policies, score trajectories, and visualize policies.
    - Requires the `train` dependency group.
 
-Runtime mouse movement does not bundle a trained RL model. A trained model can be connected to runtime through `Mouse(path_provider=...)`, where the provider returns a complete path.
+The Python wheel bundles the default v2 SAC mouse model at `bumblebee.models/sac_mouse_v2.zip`. Runtime mouse/keyboard imports remain lightweight; loading the packaged model requires the optional `rl` extra or the local `train` dependency group. External models can still be connected through `Mouse(path_provider=...)`, where the provider returns a complete path.
 
 ---
 
@@ -34,6 +35,11 @@ src/bumblebee/
 ├── __init__.py
 ├── mouse.py
 ├── keyboard.py
+├── models/
+│   ├── __init__.py
+│   ├── manifest.json
+│   ├── MODEL_CARD.md
+│   └── sac_mouse_v2.zip
 └── rl/
     ├── __init__.py
     ├── core/
@@ -59,6 +65,7 @@ src/bumblebee/
 | --- | --- |
 | `bumblebee.mouse` | Runtime mouse API, movement profiles, path execution, custom/RL path provider hook. |
 | `bumblebee.keyboard` | Runtime keyboard API, typing profiles, hotkeys, editing helpers, clipboard helpers. |
+| `bumblebee.models` | Packaged default mouse model, model manifest, and helper functions for exporting/verifying the model. |
 
 ### RL modules
 
@@ -71,6 +78,7 @@ src/bumblebee/
 | `bumblebee.rl.envs.mouse` | Lightweight non-Gym mouse imitation environment and shaped reward. |
 | `bumblebee.rl.envs.gymnasium` | Gymnasium wrapper for Stable-Baselines3. |
 | `bumblebee.rl.training.callbacks` | Rich terminal training progress callback. |
+| `bumblebee.rl.policy` | Optional Stable-Baselines3 path provider for loading the packaged/default SAC model. |
 
 ---
 
@@ -85,9 +93,21 @@ Declared in `[project].dependencies`:
 - `pynput`
 - `pyperclip`
 
-### Training dependencies
+### Optional RL/training dependencies
 
-Declared in `[dependency-groups].train`:
+Published package users install these with:
+
+```bash
+uv add "the-bumblebee[rl]"
+```
+
+Contributors working from a checkout install the equivalent local group with:
+
+```bash
+uv sync --group train
+```
+
+Declared in `[project.optional-dependencies].rl` and `[dependency-groups].train`:
 
 - `gymnasium`
 - `stable-baselines3`
@@ -544,7 +564,11 @@ Artifacts are intentionally not committed.
 
 ### 8.4 Visualize policy
 
+The visualizer defaults to the packaged model. You can also pass any SB3 `.zip` model.
+
 ```bash
+uv run --group train python scripts/visualize_mouse_policy.py
+
 uv run --group train python scripts/visualize_mouse_policy.py \
   --model artifacts/rl/sac_mouse/best_model.zip
 ```
@@ -555,7 +579,20 @@ The visualizer lets you click start/destination points and overlay multiple stoc
 
 ## 9. Runtime integration with RL paths
 
-`Mouse` can execute any complete path with:
+`Mouse` can execute the packaged SAC policy directly:
+
+```python
+from bumblebee import Mouse
+from bumblebee.rl.policy import SB3MousePolicyPathProvider
+
+provider = SB3MousePolicyPathProvider.from_packaged(deterministic=False)
+mouse = Mouse(path_provider=provider)
+mouse.move(700, 450)
+```
+
+This requires `the-bumblebee[rl]` or `uv sync --group train`.
+
+`Mouse` can also execute any complete path with:
 
 ```python
 mouse.move_path(path)
@@ -642,6 +679,16 @@ Runtime package exports come from `bumblebee.__init__`:
 - `Keyboard`
 - related profile/data classes exposed by their modules, including `MouseBounds`, `MouseProfile`, and `KeyboardProfile`
 
+`bumblebee.models` exports packaged-model helpers:
+
+- `packaged_mouse_model_file()`
+- `packaged_mouse_model_path()`
+- `export_packaged_mouse_model(destination)`
+- `load_model_manifest()`
+- `verify_packaged_mouse_model()`
+
+`bumblebee.rl.policy` exports `SB3MousePolicyPathProvider` for loading the packaged model or another SB3 SAC model as a runtime mouse path provider.
+
 ---
 
 ## 11. Important design decisions
@@ -655,8 +702,9 @@ Runtime package exports come from `bumblebee.__init__`:
 3. **Local-frame demonstrations**
    - Human path styles are normalized and reused across arbitrary start/destination tasks.
 
-4. **No bundled trained model**
-   - The repository provides training and visualization tools, but model artifacts stay under `artifacts/` and out of git.
+4. **Packaged default model, external datasets**
+   - The wheel includes the default v2 SAC mouse model so users can run the RL path provider without downloading a separate model asset.
+   - Datasets, checkpoints, replay buffers, and logs stay under `artifacts/` locally and are distributed separately as release assets when needed.
 
 5. **Runtime accepts complete paths**
    - RL-generated trajectories should be used directly through `Mouse(path_provider=...)` or `move_path()`.

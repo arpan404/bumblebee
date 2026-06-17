@@ -29,7 +29,7 @@ Bumblebee is a Python package for realistic mouse and keyboard automation. Runti
 - Clean raw mouse tracker JSON into imitation datasets.
 - Train SAC policies with Stable-Baselines3.
 - Visualize trained policies with an interactive Tkinter visualizer.
-- RL code is isolated from runtime dependencies through the `train` dependency group.
+- RL dependencies are optional: use `the-bumblebee[rl]` for packaged model loading or `uv sync --group train` for local training.
 
 ---
 
@@ -39,6 +39,7 @@ Bumblebee is a Python package for realistic mouse and keyboard automation. Runti
 src/bumblebee/
 ├── mouse.py                 # Runtime mouse API and path execution
 ├── keyboard.py              # Runtime keyboard API and typing model
+├── models/                  # Packaged default SAC mouse model + metadata
 └── rl/
     ├── core/
     │   ├── geometry.py      # Polyline resampling, local frames, curvature
@@ -53,22 +54,29 @@ src/bumblebee/
         └── callbacks.py     # Rich training progress callback
 
 scripts/
+├── package_mouse_model.py
 ├── prepare_mouse_data.py
 ├── train_mouse_sac.py
 ├── run_mouse_sac_long.sh
 └── visualize_mouse_policy.py
 ```
 
-Runtime imports are intentionally small: mouse/keyboard control does not require training dependencies. RL dependencies live in the `train` dependency group.
+Runtime imports are intentionally small: mouse/keyboard control does not require training dependencies. The wheel includes the default SAC mouse model at `bumblebee.models/sac_mouse_v2.zip`, but loading that model requires the optional `rl` extra or the local `train` dependency group.
 
 ---
 
 ## 📦 Installation
 
-Install from PyPI with uv:
+Install runtime-only package from PyPI with uv:
 
 ```bash
 uv add the-bumblebee
+```
+
+Install runtime plus packaged RL model loading support:
+
+```bash
+uv add "the-bumblebee[rl]"
 ```
 
 For local development:
@@ -77,7 +85,7 @@ For local development:
 uv sync
 ```
 
-For RL training tools:
+For local RL training tools:
 
 ```bash
 uv sync --group train
@@ -126,7 +134,18 @@ path = mouse.generate_path(500, 600)
 mouse.move_path(path)
 ```
 
-Use an RL/custom path provider. A provider receives `start` and `destination` arrays and returns either `N x 2` points or `N x 3` points where column 3 is a speed factor.
+Use the packaged SAC mouse model as a path provider. This requires `the-bumblebee[rl]` or, in a checkout, `uv sync --group train`.
+
+```python
+from bumblebee import Mouse
+from bumblebee.rl.policy import SB3MousePolicyPathProvider
+
+provider = SB3MousePolicyPathProvider.from_packaged(deterministic=False)
+mouse = Mouse(path_provider=provider)
+mouse.move(700, 450)
+```
+
+You can also provide your own path provider. A provider receives `start` and `destination` arrays and returns either `N x 2` points or `N x 3` points where column 3 is a speed factor.
 
 ```python
 import numpy as np
@@ -183,7 +202,7 @@ keyboard.type_or_paste("Long text can be pasted through the clipboard.")
 
 ## 🧠 RL Workflow
 
-RL training artifacts are kept out of git. By default, scripts read/write under `artifacts/`.
+The default v2 SAC model is packaged with the Python wheel. Datasets, checkpoints, replay buffers, and long-running training outputs are kept out of git and out of the wheel. By default, scripts read/write under `artifacts/`.
 
 ### 1. Prepare demonstration data
 
@@ -222,6 +241,10 @@ For long-running local training:
 ### 3. Visualize trained policy
 
 ```bash
+# Uses the packaged model by default.
+uv run --group train python scripts/visualize_mouse_policy.py
+
+# Or pass an explicit model.
 uv run --group train python scripts/visualize_mouse_policy.py \
   --model artifacts/rl/sac_mouse/best_model.zip
 ```
@@ -249,6 +272,7 @@ uv run --group train python scripts/visualize_mouse_policy.py \
 | `set_speed(px_per_second)` | Set base movement speed. |
 | `set_profile(name)` | Apply a movement profile. |
 | `set_path_provider(provider)` | Attach or replace an RL/custom path provider. |
+| `SB3MousePolicyPathProvider.from_packaged()` | Load the packaged SAC model as a mouse path provider. |
 
 ### Keyboard
 
@@ -280,7 +304,7 @@ uv run isort src scripts
 uv run python -m compileall scripts src
 ```
 
-Runtime package code lives in `src/bumblebee`. Local datasets, checkpoints, replay buffers, TensorBoard logs, and other training artifacts should stay outside git.
+Runtime package code lives in `src/bumblebee`. Local datasets, checkpoints, replay buffers, TensorBoard logs, and other training artifacts should stay outside git. See `PUBLISHING.md` for the package/release process and packaged model policy.
 
 ---
 

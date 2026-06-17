@@ -1535,13 +1535,31 @@ wheels = [
 
 [[package]]
 name = "the-bumblebee"
-version = "1.0.2"
+version = "2.0.0"
 source = { editable = "." }
 dependencies = [
     { name = "numpy" },
     { name = "pyautogui" },
     { name = "pynput" },
     { name = "pyperclip" },
+]
+
+[package.optional-dependencies]
+rl = [
+    { name = "gymnasium" },
+    { name = "rich" },
+    { name = "stable-baselines3" },
+    { name = "tensorboard" },
+    { name = "torch" },
+    { name = "tqdm" },
+]
+train = [
+    { name = "gymnasium" },
+    { name = "rich" },
+    { name = "stable-baselines3" },
+    { name = "tensorboard" },
+    { name = "torch" },
+    { name = "tqdm" },
 ]
 
 [package.dev-dependencies]
@@ -1561,11 +1579,24 @@ train = [
 
 [package.metadata]
 requires-dist = [
+    { name = "gymnasium", marker = "extra == 'rl'", specifier = ">=1.0.0" },
+    { name = "gymnasium", marker = "extra == 'train'", specifier = ">=1.0.0" },
     { name = "numpy", specifier = ">=2.2.4" },
     { name = "pyautogui", specifier = ">=0.9.54" },
     { name = "pynput", specifier = ">=1.8.1" },
     { name = "pyperclip", specifier = ">=1.9.0" },
+    { name = "rich", marker = "extra == 'rl'", specifier = ">=13.9.0" },
+    { name = "rich", marker = "extra == 'train'", specifier = ">=13.9.0" },
+    { name = "stable-baselines3", marker = "extra == 'rl'", specifier = ">=2.4.0" },
+    { name = "stable-baselines3", marker = "extra == 'train'", specifier = ">=2.4.0" },
+    { name = "tensorboard", marker = "extra == 'rl'", specifier = ">=2.18.0" },
+    { name = "tensorboard", marker = "extra == 'train'", specifier = ">=2.18.0" },
+    { name = "torch", marker = "extra == 'rl'", specifier = ">=2.6.0" },
+    { name = "torch", marker = "extra == 'train'", specifier = ">=2.6.0" },
+    { name = "tqdm", marker = "extra == 'rl'", specifier = ">=4.67.0" },
+    { name = "tqdm", marker = "extra == 'train'", specifier = ">=4.67.0" },
 ]
+provides-extras = ["rl", "train"]
 
 [package.metadata.requires-dev]
 dev = [

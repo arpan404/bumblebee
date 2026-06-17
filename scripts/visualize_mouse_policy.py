@@ -11,6 +11,7 @@ import numpy as np
 import torch
 from stable_baselines3 import SAC
 
+from bumblebee.models import packaged_mouse_model_path
 from bumblebee.rl.envs.mouse import MouseEnvConfig, VirtualScreen
 
 
@@ -401,7 +402,7 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Visualize generated mouse paths from a SAC model."
     )
-    parser.add_argument("--model", default="artifacts/rl/sac_mouse/best_model.zip")
+    parser.add_argument("--model", default=str(packaged_mouse_model_path()))
     parser.add_argument(
         "--device", default="auto", choices=["auto", "cpu", "cuda", "mps"]
     )

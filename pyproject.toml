@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "the-bumblebee"
-version = "1.0.2"
+version = "2.0.0"
 description = "A Python package for natural, human-like mouse and keyboard control."
 readme = "README.md"
 requires-python = ">=3.11"
@@ -30,6 +30,24 @@ dependencies = [
 Homepage = "https://github.com/socioy/bumblebee"
 Repository = "https://github.com/socioy/bumblebee"
 
+[project.optional-dependencies]
+rl = [
+  "gymnasium>=1.0.0",
+  "rich>=13.9.0",
+  "stable-baselines3>=2.4.0",
+  "tensorboard>=2.18.0",
+  "torch>=2.6.0",
+  "tqdm>=4.67.0",
+]
+train = [
+  "gymnasium>=1.0.0",
+  "rich>=13.9.0",
+  "stable-baselines3>=2.4.0",
+  "tensorboard>=2.18.0",
+  "torch>=2.6.0",
+  "tqdm>=4.67.0",
+]
+
 [dependency-groups]
 dev = [
   "black>=25.1.0",
@@ -52,8 +70,15 @@ packages = ["src/bumblebee"]
 include = [
   "/src/bumblebee",
   "/README.md",
+  "/ARCHITECTURE.md",
+  "/PUBLISHING.md",
   "/LICENSE.md",
 ]
+
+[tool.hatch.build.targets.wheel.force-include]
+"src/bumblebee/models/sac_mouse_v2.zip" = "bumblebee/models/sac_mouse_v2.zip"
+"src/bumblebee/models/manifest.json" = "bumblebee/models/manifest.json"
+"src/bumblebee/models/MODEL_CARD.md" = "bumblebee/models/MODEL_CARD.md"
 
 [tool.black]
 line-length = 88
