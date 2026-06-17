@@ -23,7 +23,7 @@ We're committed to providing a welcoming environment for all contributors. Pleas
    ```
 3. Add the original repository as an upstream remote:
    ```bash
-   git remote add upstream https://github.com/socioy/bumblebee.git
+   git remote add upstream https://github.com/arpan404/bumblebee.git
    ```
 
 ### Environment Setup
@@ -110,7 +110,7 @@ After building, run your tests to confirm that everything functions as expected.
 
 If you encounter any problems or have questions:
 
-1. Check existing [issues](https://github.com/socioy/bumblebee/issues) first
+1. Check existing [issues](https://github.com/arpan404/bumblebee/issues) first
 2. If you can't find a related issue, create a new one with details about your problem or question
 
 ## Thank You!

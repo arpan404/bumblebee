@@ -1,6 +1,10 @@
-# 🐝 Bumblebee – Human-Like Mouse & Keyboard Controller
+# 🐝 Bumblebee – Human-Like Mouse & Keyboard Automation
 
-Bumblebee is a Python package for realistic mouse and keyboard automation. Runtime mouse movement is local and lightweight, keyboard typing includes human-like timing controls, and the repository also includes an RL workspace for training and visualizing mouse policies.
+[![CI](https://github.com/arpan404/bumblebee/actions/workflows/ci.yml/badge.svg)](https://github.com/arpan404/bumblebee/actions/workflows/ci.yml)
+[![PyPI](https://img.shields.io/pypi/v/the-bumblebee.svg)](https://pypi.org/project/the-bumblebee/)
+[![Python](https://img.shields.io/pypi/pyversions/the-bumblebee.svg)](https://pypi.org/project/the-bumblebee/)
+
+Bumblebee is a Python package for realistic mouse and keyboard automation. It includes runtime mouse/keyboard controls, a packaged v2 SAC mouse policy for RL-generated cursor paths, and a training workspace for building and evaluating new mouse policies.
 
 ---
 
@@ -33,6 +37,25 @@ Bumblebee is a Python package for realistic mouse and keyboard automation. Runti
 
 ---
 
+## 📚 Documentation
+
+Detailed docs live under [`docs/`](docs/index.md):
+
+- [Installation](docs/installation.md)
+- [Mouse API](docs/mouse.md)
+- [Keyboard API](docs/keyboard.md)
+- [Packaged model and release assets](docs/models-and-releases.md)
+- [RL workflow](docs/rl-workflow.md)
+- [Examples](docs/examples.md)
+
+Project/release internals:
+
+- [Architecture](docs/architecture.md)
+- [Publishing](PUBLISHING.md)
+- [Security](SECURITY.md)
+
+---
+
 ## 🏗️ Architecture
 
 ```text
@@ -50,6 +73,7 @@ src/bumblebee/
     ├── envs/
     │   ├── mouse.py         # Lightweight mouse imitation environment
     │   └── gymnasium.py     # Gymnasium wrapper for SB3
+    ├── policy.py            # Packaged/external SB3 model path provider
     └── training/
         └── callbacks.py     # Rich training progress callback
 
@@ -318,6 +342,6 @@ Runtime package code lives in `src/bumblebee`. Local datasets, checkpoints, repl
 
 ### Interested in contributing?
 
-Please review [CONTRIBUTING.md](https://github.com/socioy/bumblebee/blob/master/CONTRIBUTING.md) for guidelines.
+Please review [CONTRIBUTING.md](https://github.com/arpan404/bumblebee/blob/master/CONTRIBUTING.md) for guidelines.
 
 🐝 **Making automation feel more human, one movement at a time.**

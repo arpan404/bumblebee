@@ -1,0 +1,41 @@
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+      time: "09:00"
+    open-pull-requests-limit: 5
+    groups:
+      github-actions:
+        patterns:
+          - "*"
+
+  - package-ecosystem: pip
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+      time: "09:30"
+    open-pull-requests-limit: 5
+    groups:
+      runtime-dependencies:
+        patterns:
+          - "numpy"
+          - "pyautogui"
+          - "pynput"
+          - "pyperclip"
+      rl-dependencies:
+        patterns:
+          - "gymnasium"
+          - "rich"
+          - "stable-baselines3"
+          - "tensorboard"
+          - "torch"
+          - "tqdm"
+      dev-dependencies:
+        patterns:
+          - "black"
+          - "isort"
+          - "twine"

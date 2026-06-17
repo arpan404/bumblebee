@@ -1,0 +1,40 @@
+name: Documentation issue
+description: Report missing, unclear, or outdated documentation.
+title: "[Docs]: "
+labels: ["documentation"]
+body:
+  - type: dropdown
+    id: doc
+    attributes:
+      label: Document
+      options:
+        - README.md
+        - docs/installation.md
+        - docs/mouse.md
+        - docs/keyboard.md
+        - docs/models-and-releases.md
+        - docs/rl-workflow.md
+        - docs/architecture.md
+        - PUBLISHING.md
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: issue
+    attributes:
+      label: What is wrong or missing?
+    validations:
+      required: true
+
+  - type: textarea
+    id: suggestion
+    attributes:
+      label: Suggested wording or structure
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checks
+      options:
+        - label: I checked the current docs and README.

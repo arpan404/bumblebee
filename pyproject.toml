@@ -5,12 +5,12 @@ build-backend = "hatchling.build"
 [project]
 name = "the-bumblebee"
 version = "2.0.0"
-description = "A Python package for natural, human-like mouse and keyboard control."
+description = "Human-like mouse and keyboard automation with an optional packaged RL mouse policy."
 readme = "README.md"
 requires-python = ">=3.11"
 license = "MIT"
 authors = [
-  { name = "socioy", email = "bumblebee@socioy.com" },
+  { name = "arpan404", email = "bumblebee@socioy.com" },
 ]
 classifiers = [
   "Programming Language :: Python :: 3",
@@ -27,8 +27,11 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/socioy/bumblebee"
-Repository = "https://github.com/socioy/bumblebee"
+Homepage = "https://github.com/arpan404/bumblebee"
+Repository = "https://github.com/arpan404/bumblebee"
+Documentation = "https://github.com/arpan404/bumblebee#documentation"
+Issues = "https://github.com/arpan404/bumblebee/issues"
+Changelog = "https://github.com/arpan404/bumblebee/releases"
 
 [project.optional-dependencies]
 rl = [
@@ -70,8 +73,9 @@ packages = ["src/bumblebee"]
 include = [
   "/src/bumblebee",
   "/README.md",
-  "/ARCHITECTURE.md",
   "/PUBLISHING.md",
+  "/SECURITY.md",
+  "/docs",
   "/LICENSE.md",
 ]
 

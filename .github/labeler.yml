@@ -1,0 +1,43 @@
+documentation:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "README.md"
+          - "CONTRIBUTING.md"
+          - "PUBLISHING.md"
+          - "docs/**"
+
+mouse:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "src/bumblebee/mouse.py"
+
+keyboard:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "src/bumblebee/keyboard.py"
+
+rl:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "src/bumblebee/rl/**"
+          - "scripts/prepare_mouse_data.py"
+          - "scripts/train_mouse_sac.py"
+          - "scripts/visualize_mouse_policy.py"
+
+model:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "src/bumblebee/models/**"
+          - "scripts/package_mouse_model.py"
+
+packaging:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "pyproject.toml"
+          - "uv.lock"
+          - "MANIFEST.in"
+
+ci:
+  - changed-files:
+      - any-glob-to-any-file:
+          - ".github/**"

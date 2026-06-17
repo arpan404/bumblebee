@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Documentation
+    url: https://github.com/arpan404/bumblebee#documentation
+    about: Read installation, API, RL workflow, model, and publishing docs.
+  - name: Security issue
+    url: https://github.com/arpan404/bumblebee/security/policy
+    about: Please report security issues privately instead of opening a public issue.

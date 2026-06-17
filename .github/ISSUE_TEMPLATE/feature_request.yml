@@ -1,0 +1,55 @@
+name: Feature request
+description: Suggest a runtime, RL, packaging, or documentation improvement.
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please describe the problem first, then the API or workflow you want.
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Mouse runtime
+        - Keyboard runtime
+        - Packaged RL model
+        - RL training/data tooling
+        - Packaging/release
+        - Documentation
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What are you trying to do, and what is missing today?
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: Include API examples or command examples when possible.
+      render: python
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+
+  - type: checkboxes
+    id: scope
+    attributes:
+      label: Scope checklist
+      options:
+        - label: This can be implemented without committing datasets/checkpoints/logs.
+        - label: This does not require unsafe default mouse/keyboard behavior.
+        - label: I am willing to help test or review the change.

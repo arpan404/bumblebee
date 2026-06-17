@@ -1,0 +1,85 @@
+name: Bug report
+description: Report a reproducible Bumblebee bug.
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a bug. Please include enough detail for us to reproduce it.
+
+  - type: input
+    id: version
+    attributes:
+      label: Bumblebee version
+      description: Package version or commit SHA.
+      placeholder: "2.0.0 or commit SHA"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Mouse runtime
+        - Keyboard runtime
+        - Packaged RL model
+        - RL training/data tooling
+        - Packaging/release
+        - Documentation
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Minimal reproduction
+      description: Include code, commands, inputs, and the exact behavior.
+      render: python
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: OS, Python version, install command, display/session details if relevant.
+      value: |
+        - OS:
+        - Python:
+        - Install command:
+        - Runtime only or `[rl]` extra:
+        - Display/session type, if mouse related:
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs / traceback
+      render: text
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Pre-submit checks
+      options:
+        - label: I searched existing issues and PRs.
+        - label: I removed private data, credentials, and screenshots that should not be public.
+        - label: If this involves real mouse/keyboard automation, I tested with PyAutoGUI fail-safe enabled.

@@ -15,7 +15,9 @@ The wheel contains:
   - `src/bumblebee/models/MODEL_CARD.md`
 - documentation included in the source distribution:
   - `README.md`
-  - `ARCHITECTURE.md`
+  - `docs/**`
+  - `PUBLISHING.md`
+  - `SECURITY.md`
   - `LICENSE.md`
 
 The wheel does **not** contain:
@@ -179,9 +181,24 @@ print(f"model assets found in {wheel}")
 PY
 ```
 
+## GitHub automation
+
+The repository includes:
+
+| File | Purpose |
+| --- | --- |
+| `.github/workflows/ci.yml` | Runs formatting, import sorting, compile checks, package build, Twine metadata checks, and wheel model-asset verification on PRs and pushes. |
+| `.github/workflows/release.yml` | Builds release distributions, copies the packaged model to `model.zip`, writes `SHA256SUMS.txt`, uploads GitHub release assets, and publishes to PyPI through trusted publishing. |
+| `.github/workflows/pr-labeler.yml` | Labels PRs by changed area using `.github/labeler.yml`. |
+| `.github/dependabot.yml` | Opens grouped dependency updates for GitHub Actions and Python dependencies. |
+| `.github/PULL_REQUEST_TEMPLATE.md` | PR checklist for validation, model changes, and safety notes. |
+| `.github/ISSUE_TEMPLATE/*` | Structured bug, feature, docs, and mouse/model behavior reports. |
+
 ## Publishing to PyPI
 
-After checks pass:
+Preferred flow: publish a GitHub release. The `Release` workflow builds the package and publishes to PyPI using trusted publishing.
+
+Manual fallback after checks pass:
 
 ```bash
 uv run twine upload dist/*
@@ -205,16 +222,25 @@ uv run twine upload --repository testpypi dist/*
    git push origin v2.0.0
    ```
 
-5. Create or update the GitHub release.
-6. Attach release assets:
+5. Create or update the GitHub release as a draft.
+6. Manually attach large assets that are not in git, especially `dataset.npz`.
+7. Publish the release.
 
-   ```bash
-   cp src/bumblebee/models/sac_mouse_v2.zip /tmp/model.zip
-   cp artifacts/mouse_demonstrations.npz /tmp/dataset.npz
-   gh release upload v2.0.0 /tmp/model.zip /tmp/dataset.npz --clobber
-   ```
+When the release is published, `.github/workflows/release.yml` uploads:
 
-7. Publish the draft release after reviewing notes and assets.
+- built wheel and sdist
+- `model.zip`, copied from the packaged model
+- `SHA256SUMS.txt`
+
+The workflow does **not** upload `dataset.npz` because the dataset is intentionally not stored in git.
+
+Manual asset upload fallback:
+
+```bash
+cp src/bumblebee/models/sac_mouse_v2.zip /tmp/model.zip
+cp artifacts/mouse_demonstrations.npz /tmp/dataset.npz
+gh release upload v2.0.0 /tmp/model.zip /tmp/dataset.npz --clobber
+```
 
 ## Versioning notes
 

@@ -121,6 +121,7 @@ class MouseProfile:
     min_path_points: int = 18
     max_path_points: int = 120
     min_segment_distance_px: float = 5.0
+    max_segment_distance_px: float = 8.0
     short_move_duration_threshold: float = 0.1
     fast_segment_distance_px: float = 40.0
     fast_segment_speed_multiplier: float = 1.2
@@ -141,7 +142,7 @@ class MouseProfile:
         positive_fields = {
             "speed_px_s": self.speed_px_s,
             "target_segment_length_px": self.target_segment_length_px,
-            "min_segment_distance_px": self.min_segment_distance_px,
+            "max_segment_distance_px": self.max_segment_distance_px,
             "short_move_duration_threshold": self.short_move_duration_threshold,
             "fast_segment_distance_px": self.fast_segment_distance_px,
             "fast_segment_speed_multiplier": self.fast_segment_speed_multiplier,
@@ -157,6 +158,8 @@ class MouseProfile:
             raise ValueError("min_path_points must be at least 2")
         if self.max_path_points < self.min_path_points:
             raise ValueError("max_path_points must be >= min_path_points")
+        if self.min_segment_distance_px < 0:
+            raise ValueError("min_segment_distance_px cannot be negative")
         if self.speed_variation < 0:
             raise ValueError("speed_variation cannot be negative")
         if self.speed_factor_variation < 0:
@@ -456,6 +459,20 @@ class Mouse:
         points = self._clip_points_to_screen(points)
         return np.column_stack([points, self._speed_profile(point_count)])
 
+    def _densify_path_points(self, path_points: np.ndarray) -> np.ndarray:
+        max_distance = self._profile.max_segment_distance_px
+        if max_distance <= 0 or len(path_points) < 2:
+            return path_points
+
+        dense_rows = [path_points[0]]
+        for previous, current in zip(path_points[:-1], path_points[1:]):
+            segment_distance = self._distance(previous[:2], current[:2])
+            pieces = max(1, int(math.ceil(segment_distance / max_distance)))
+            for piece_index in range(1, pieces + 1):
+                alpha = piece_index / pieces
+                dense_rows.append(previous + (current - previous) * alpha)
+        return np.asarray(dense_rows, dtype=np.float64)
+
     def _normalize_path_points(
         self,
         path_points: np.ndarray,
@@ -513,7 +530,7 @@ class Mouse:
             )
 
         normalized[:, :2] = self._clip_points_to_screen(normalized[:, :2])
-        return normalized
+        return self._densify_path_points(normalized)
 
     def _path_to(self, start: np.ndarray, destination: np.ndarray) -> np.ndarray:
         if self._path_provider is None:
@@ -535,24 +552,30 @@ class Mouse:
         x = path_points[:, 0]
         y = path_points[:, 1]
         speed_factor = path_points[:, 2]
-        adjacent_distances = np.insert(np.hypot(np.diff(x), np.diff(y)), 0, 0.0)
+        segment_lengths = np.hypot(np.diff(x), np.diff(y))
 
         steps: list[MouseMoveStep] = []
         accumulated_distance = 0.0
+        last_kept_xy = path_points[0, :2]
         for index in range(1, len(path_points)):
-            distance = float(adjacent_distances[index])
+            accumulated_distance += float(segment_lengths[index - 1])
+            current_xy = path_points[index, :2]
+            distance_from_last_kept = self._distance(last_kept_xy, current_xy)
             is_final_point = index == len(path_points) - 1
-            if distance < self._profile.min_segment_distance_px and not is_final_point:
-                accumulated_distance += distance
+            should_keep = (
+                is_final_point
+                or self._profile.min_segment_distance_px <= 0
+                or distance_from_last_kept >= self._profile.min_segment_distance_px
+            )
+            if not should_keep:
                 continue
 
-            movement_distance = distance + accumulated_distance
-            if movement_distance <= 0:
+            if accumulated_distance <= 0:
                 continue
 
-            speed = self._speed_for_segment(movement_distance)
+            speed = self._speed_for_segment(accumulated_distance)
             time_to_move = round(
-                (movement_distance / speed) * float(speed_factor[index]), 4
+                (accumulated_distance / speed) * float(speed_factor[index]), 4
             )
             move_duration = (
                 0.0
@@ -569,6 +592,7 @@ class Mouse:
                 )
             )
             accumulated_distance = 0.0
+            last_kept_xy = current_xy
 
         return steps
 
