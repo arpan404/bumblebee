@@ -98,12 +98,17 @@ jobs:
           name: release-files
           path: release-files
 
+      - name: Show downloaded release files
+        run: find release-files -maxdepth 4 -type f -print | sort
+
       - name: Upload release assets
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            release-files/dist/*
-            release-files/release-assets/*
+            release-files/**/*.whl
+            release-files/**/*.tar.gz
+            release-files/**/model.zip
+            release-files/**/SHA256SUMS.txt
 
   publish-pypi:
     name: Publish to PyPI
@@ -121,7 +126,13 @@ jobs:
           name: release-files
           path: release-files
 
+      - name: Collect Python distributions
+        run: |
+          mkdir -p publish-dist
+          find release-files -type f \( -name '*.whl' -o -name '*.tar.gz' \) -exec cp {} publish-dist/ \;
+          ls -la publish-dist
+
       - name: Publish package distributions
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
-          packages-dir: release-files/dist
+          packages-dir: publish-dist
