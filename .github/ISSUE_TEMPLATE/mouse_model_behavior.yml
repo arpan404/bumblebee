@@ -1,0 +1,71 @@
+name: Mouse path / model behavior
+description: Report unnatural cursor movement, path execution, or packaged model behavior.
+title: "[Mouse]: "
+labels: ["mouse", "model"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this when the cursor path feels wrong, too straight, too jumpy, too slow, too fast, or misses the target.
+
+  - type: input
+    id: version
+    attributes:
+      label: Bumblebee version or commit SHA
+      placeholder: "2.0.0 or commit SHA"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: provider
+    attributes:
+      label: Path provider
+      options:
+        - Procedural/default
+        - Procedural/natural
+        - Procedural/messy
+        - Packaged RL model
+        - External/custom provider
+        - Precomputed move_path
+    validations:
+      required: true
+
+  - type: textarea
+    id: code
+    attributes:
+      label: Minimal code or command
+      render: python
+    validations:
+      required: true
+
+  - type: textarea
+    id: movement
+    attributes:
+      label: Movement details
+      description: Include start/destination, screen size, profile settings, deterministic/stochastic mode, and observed path behavior.
+      value: |
+        - Start:
+        - Destination:
+        - Screen size:
+        - Profile:
+        - Deterministic RL mode:
+        - What looked wrong:
+    validations:
+      required: true
+
+  - type: textarea
+    id: metrics
+    attributes:
+      label: Optional path metrics / screenshots
+      description: Attach screenshots, generated path samples, or metrics if available.
+      render: text
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      value: |
+        - OS:
+        - Python:
+        - Install command:
+        - Display/session type:

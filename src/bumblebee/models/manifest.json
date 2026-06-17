@@ -1,0 +1,34 @@
+{
+  "default_mouse_model": "sac_mouse_v2.zip",
+  "models": [
+    {
+      "name": "sac_mouse_v2",
+      "file": "sac_mouse_v2.zip",
+      "algorithm": "SAC",
+      "policy": "MlpPolicy",
+      "source_run": "artifacts/rl/sac_mouse_512/best_model.zip",
+      "sha256": "51900ffb4cfd724592235b8e20dfca0858f5b386543ff975650c1cc5d598bd05",
+      "size_bytes": 11928310,
+      "screen": {
+        "width": 4096,
+        "height": 2304
+      },
+      "env": {
+        "max_steps": 96,
+        "dt": 0.008333333333333333,
+        "max_velocity_px_s": 6500.0,
+        "target_radius_px": 8.0,
+        "observation_size": 10,
+        "action_size": 2
+      },
+      "training": {
+        "preset": "m4-max",
+        "net_arch": [
+          512,
+          512
+        ],
+        "dataset_sha256": "a2679aa55d7687d55a9b08531d33286e8fc548d9d9f1628a6fdda77a9e8f4e38"
+      }
+    }
+  ]
+}

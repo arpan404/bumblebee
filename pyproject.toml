@@ -4,13 +4,13 @@ build-backend = "hatchling.build"
 
 [project]
 name = "the-bumblebee"
-version = "1.0.2"
-description = "An AI-powered Python package for natural, human-like mouse and keyboard control."
+version = "2.0.0"
+description = "Human-like mouse and keyboard automation with an optional packaged RL mouse policy."
 readme = "README.md"
 requires-python = ">=3.11"
 license = "MIT"
 authors = [
-  { name = "socioy", email = "bumblebee@socioy.com" },
+  { name = "arpan404", email = "bumblebee@socioy.com" },
 ]
 classifiers = [
   "Programming Language :: Python :: 3",
@@ -23,19 +23,47 @@ dependencies = [
   "numpy>=2.2.4",
   "pyautogui>=0.9.54",
   "pynput>=1.8.1",
-  "scipy>=1.15.2",
-  "torch>=2.6.0",
+  "pyperclip>=1.9.0",
 ]
 
 [project.urls]
-Homepage = "https://github.com/socioy/bumblebee"
-Repository = "https://github.com/socioy/bumblebee"
+Homepage = "https://github.com/arpan404/bumblebee"
+Repository = "https://github.com/arpan404/bumblebee"
+Documentation = "https://github.com/arpan404/bumblebee#documentation"
+Issues = "https://github.com/arpan404/bumblebee/issues"
+Changelog = "https://github.com/arpan404/bumblebee/releases"
+
+[project.optional-dependencies]
+rl = [
+  "gymnasium>=1.0.0",
+  "rich>=13.9.0",
+  "stable-baselines3>=2.4.0",
+  "tensorboard>=2.18.0",
+  "torch>=2.6.0",
+  "tqdm>=4.67.0",
+]
+train = [
+  "gymnasium>=1.0.0",
+  "rich>=13.9.0",
+  "stable-baselines3>=2.4.0",
+  "tensorboard>=2.18.0",
+  "torch>=2.6.0",
+  "tqdm>=4.67.0",
+]
 
 [dependency-groups]
 dev = [
   "black>=25.1.0",
   "isort>=6.0.1",
   "twine>=6.1.0",
+]
+train = [
+  "gymnasium>=1.0.0",
+  "rich>=13.9.0",
+  "stable-baselines3>=2.4.0",
+  "tensorboard>=2.18.0",
+  "torch>=2.6.0",
+  "tqdm>=4.67.0",
 ]
 
 [tool.hatch.build.targets.wheel]
@@ -45,11 +73,16 @@ packages = ["src/bumblebee"]
 include = [
   "/src/bumblebee",
   "/README.md",
+  "/PUBLISHING.md",
+  "/SECURITY.md",
+  "/docs",
   "/LICENSE.md",
 ]
 
 [tool.hatch.build.targets.wheel.force-include]
-"src/bumblebee/ai/models/bumblebee-c-v1.pth" = "bumblebee/ai/models/bumblebee-c-v1.pth"
+"src/bumblebee/models/sac_mouse_v2.zip" = "bumblebee/models/sac_mouse_v2.zip"
+"src/bumblebee/models/manifest.json" = "bumblebee/models/manifest.json"
+"src/bumblebee/models/MODEL_CARD.md" = "bumblebee/models/MODEL_CARD.md"
 
 [tool.black]
 line-length = 88
