@@ -53,9 +53,9 @@ train = [
 
 [dependency-groups]
 dev = [
-  "black>=25.1.0",
-  "isort>=6.0.1",
-  "twine>=6.1.0",
+  "black>=26.5.1",
+  "isort>=8.0.1",
+  "twine>=6.2.0",
 ]
 train = [
   "gymnasium>=1.0.0",
