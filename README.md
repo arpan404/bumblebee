@@ -1,53 +1,34 @@
-# 🐝 Bumblebee
+# Bumblebee
 
 [![PyPI](https://img.shields.io/pypi/v/the-bumblebee.svg)](https://pypi.org/project/the-bumblebee/)
 [![Python](https://img.shields.io/pypi/pyversions/the-bumblebee.svg)](https://pypi.org/project/the-bumblebee/)
+[![License](https://img.shields.io/pypi/l/the-bumblebee.svg)](https://github.com/arpan404/bumblebee/blob/master/LICENSE.md)
 
-Human-like mouse and keyboard automation for Python, with an optional packaged SAC mouse policy for RL-generated cursor paths.
+Human-like mouse and keyboard automation for Python.
 
-Bumblebee v2 focuses on:
+Bumblebee gives you a small runtime API for moving the mouse, clicking, dragging, scrolling, typing, shortcuts, clipboard actions, and optional RL-generated cursor paths. The base install stays lightweight; Torch and Stable-Baselines3 are only installed when you ask for RL support.
 
-- a lightweight runtime API for mouse and keyboard automation
-- configurable movement/typing profiles
-- custom and RL mouse path providers
-- a packaged default SAC mouse model
-- local tooling for preparing data, training, and visualizing mouse policies
+## Install
 
-> Detailed usage lives in [`docs/`](docs/index.md). This README is only the quick start.
+```bash
+pip install the-bumblebee
+```
 
----
-
-## Installation
-
-Runtime only:
+or with uv:
 
 ```bash
 uv add the-bumblebee
 ```
 
-Runtime plus packaged RL model loading:
+To use the packaged RL mouse policy:
 
 ```bash
+pip install "the-bumblebee[rl]"
+# or
 uv add "the-bumblebee[rl]"
 ```
 
-Local development:
-
-```bash
-git clone https://github.com/arpan404/bumblebee.git
-cd bumblebee
-uv sync --group dev
-```
-
-Local RL training tools:
-
-```bash
-uv sync --group train
-```
-
----
-
-## Quick examples
+## Quick start
 
 ### Mouse
 
@@ -67,8 +48,6 @@ mouse.scroll(-3)
 mouse.click_in_bounds(MouseBounds(100, 200, 260, 240), padding=6)
 ```
 
-More: [Mouse API](docs/mouse.md)
-
 ### Keyboard
 
 ```python
@@ -80,40 +59,59 @@ keyboard.type("Hello from Bumblebee.", wpm=70, typo_rate=1)
 keyboard.hotkey("cmd", "a")  # use "ctrl" on Windows/Linux
 ```
 
-More: [Keyboard API](docs/keyboard.md)
-
-### Packaged RL mouse model
-
-Install with `the-bumblebee[rl]`, then:
+### Packaged RL mouse policy
 
 ```python
 from bumblebee import Mouse
 from bumblebee.rl.policy import SB3MousePolicyPathProvider
 
 provider = SB3MousePolicyPathProvider.from_packaged(deterministic=False)
-mouse = Mouse(path_provider=provider)
+mouse = Mouse(path_provider=provider, fail_safe=True)
 mouse.move(700, 450)
 ```
 
-More: [Packaged model and release assets](docs/models-and-releases.md)
+## What is included
 
----
+- Mouse movement, clicking, dragging, scrolling, and bounded clicks
+- Keyboard typing, hotkeys, copy/paste, undo/redo, and multi-line helpers
+- Configurable movement and typing profiles
+- Custom mouse path providers
+- Optional packaged SAC mouse policy for RL-generated paths
+- Local tooling for preparing data, training, and visualizing mouse policies
 
 ## Documentation
 
 | Topic | Link |
 | --- | --- |
-| Installation | [`docs/installation.md`](docs/installation.md) |
-| Mouse API | [`docs/mouse.md`](docs/mouse.md) |
-| Keyboard API | [`docs/keyboard.md`](docs/keyboard.md) |
-| Examples | [`docs/examples.md`](docs/examples.md) |
-| RL workflow | [`docs/rl-workflow.md`](docs/rl-workflow.md) |
-| Architecture | [`docs/architecture.md`](docs/architecture.md) |
-| Model/release assets | [`docs/models-and-releases.md`](docs/models-and-releases.md) |
-| Publishing | [`PUBLISHING.md`](PUBLISHING.md) |
-| Security | [`SECURITY.md`](SECURITY.md) |
+| Installation | [docs/installation.md](https://github.com/arpan404/bumblebee/blob/master/docs/installation.md) |
+| Mouse API | [docs/mouse.md](https://github.com/arpan404/bumblebee/blob/master/docs/mouse.md) |
+| Keyboard API | [docs/keyboard.md](https://github.com/arpan404/bumblebee/blob/master/docs/keyboard.md) |
+| Examples | [docs/examples.md](https://github.com/arpan404/bumblebee/blob/master/docs/examples.md) |
+| RL workflow | [docs/rl-workflow.md](https://github.com/arpan404/bumblebee/blob/master/docs/rl-workflow.md) |
+| Architecture | [docs/architecture.md](https://github.com/arpan404/bumblebee/blob/master/docs/architecture.md) |
+| Model and release assets | [docs/models-and-releases.md](https://github.com/arpan404/bumblebee/blob/master/docs/models-and-releases.md) |
+| Publishing | [PUBLISHING.md](https://github.com/arpan404/bumblebee/blob/master/PUBLISHING.md) |
+| Security | [SECURITY.md](https://github.com/arpan404/bumblebee/blob/master/SECURITY.md) |
 
----
+## Development
+
+```bash
+git clone https://github.com/arpan404/bumblebee.git
+cd bumblebee
+uv sync --group dev
+
+uv run black --check .
+uv run isort --check-only .
+uv run python -m compileall scripts src
+uv build
+uv run twine check dist/*
+```
+
+For RL training tools:
+
+```bash
+uv sync --group train
+```
 
 ## Model and dataset policy
 
@@ -123,23 +121,7 @@ The wheel includes the default model:
 bumblebee/models/sac_mouse_v2.zip
 ```
 
-The dataset is **not** included in the wheel. Large datasets/checkpoints/logs should be distributed through GitHub Releases or another artifact host.
-
----
-
-## Development checks
-
-```bash
-uv run black --check .
-uv run isort --check-only .
-uv run python -m compileall scripts src
-uv build
-uv run twine check dist/*
-```
-
-CI runs these checks and verifies that the packaged model is present in the wheel.
-
----
+Datasets, checkpoints, replay buffers, TensorBoard logs, and other large training artifacts are not included in the wheel. Release artifacts live on [GitHub Releases](https://github.com/arpan404/bumblebee/releases).
 
 ## Safety
 
@@ -148,8 +130,8 @@ CI runs these checks and verifies that the packaged model is present in the whee
 - Only automate systems and applications you are allowed to control.
 - Be careful with real clicks, typing, and clipboard operations.
 
----
+On macOS, you may need to grant Accessibility permission to your terminal, Python, or IDE.
 
 ## Contributing
 
-See [`CONTRIBUTING.md`](CONTRIBUTING.md).
+Contributions are welcome. Start with [CONTRIBUTING.md](https://github.com/arpan404/bumblebee/blob/master/CONTRIBUTING.md).
